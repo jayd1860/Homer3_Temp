@@ -1,0 +1,166 @@
+% SYNTAX:
+% [yAvg, nTrials] = hmrS_SessAvg(yAvgSess, mlActSess, nTrialsSess)
+%
+% UI NAME:
+% Sess_Average
+%
+% DESCRIPTION:
+% Calculate avearge HRF of all runs for one subject. 
+%
+% INPUTS:
+% yAvgSess:
+% mlActSess:
+% nTrialsSess:
+%
+% OUTPUTS:
+% yAvgOut: the averaged results
+% nTrials: the number of trials averaged for each condition across all runs
+%
+% USAGE OPTIONS:
+% Sess_Average_on_Concentration_Data:  [dcAvg, nTrials]  = hmrS_SessAvg(dcAvgSess, mlActSess, nTrialsSess)
+% Sess_Average_on_Delta_OD_Data:       [dodAvg, nTrials] = hmrS_SessAvg(dodAvgSess, mlActSess, nTrialsSess)
+%
+function [yAvgOut, nTrials] = hmrS_SessAvg(yAvgRuns, mlActRuns, nTrialsRuns)
+
+yAvgOut    = DataClass().empty();
+
+nDataBlks = length(yAvgRuns{1});
+nTrials_tot = cell(nDataBlks,1);
+err = zeros(nDataBlks, length(yAvgRuns));
+
+for iBlk = 1:nDataBlks
+    
+    grp1 = [];
+    
+    for iSess = 1:length(yAvgRuns)
+            
+        yAvgOut(iBlk) = DataClass();
+        
+        yAvg      = yAvgRuns{iSess}(iBlk).GetDataTimeSeries('reshape');
+        if isempty(yAvg)
+            err(iBlk, iSess) = -1;
+            continue;
+        end
+        tHRF      = yAvgRuns{iSess}(iBlk).GetTime();
+        nTrials   = nTrialsRuns{iSess}{iBlk};
+        if isempty(mlActRuns{iSess})
+            mlActRuns{iSess} = cell(length(nDataBlks),1);
+        end
+        
+        % 
+        datatype  = yAvgRuns{iSess}(iBlk).GetDataTypeLabel();
+        if strncmp(datatype{1}, 'HRF Hb', length('HRF Hb'))
+            ml    = yAvgRuns{iSess}(iBlk).GetMeasListSrcDetPairs();
+        elseif strcmp(datatype{1}, 'HRF dOD')
+            ml    = yAvgRuns{iSess}(iBlk).GetMeasList();
+        end
+        if isempty(mlActRuns{iSess}{iBlk})
+            mlActRuns{iSess}{iBlk} = ones(size(ml,1),1);
+        end
+        mlAct = mlActRuns{iSess}{iBlk}(1:size(ml,1));
+                
+        nCond = size(nTrials,2);
+        yAvgOut(iBlk).SetTime(tHRF);
+        
+        if strcmp(datatype{1}, 'HRF dOD')
+            
+            if isempty(grp1)
+                grp1 = zeros(size(yAvg,1), size(yAvg,2), nCond);
+                nTrials_tot{iBlk} = zeros(size(yAvg,2), nCond);
+            end
+            
+            lstChInc = find(mlAct==1);
+            for iC = 1:nCond
+                nT = nTrials(iC);
+                if nT>0
+                    if iSess==1
+                        grp1(:,lstChInc,iC) = yAvg(:,lstChInc,iC) * nT;
+                        nTrials_tot{iBlk}(lstChInc,iC) = nT;
+                    else
+                        for iCh=1:length(lstChInc) %size(yAvg,2)
+                            % Make sure 3rd arg to interp1 is column vector to guarauntee interp1 output is column vector
+                            % which matches grp1 dimensions when adding the two.
+                            grp1(:,lstChInc(iCh),iC) = grp1(:,lstChInc(iCh),iC) + interp1(tHRF,yAvg(:,lstChInc(iCh),iC),tHRF(:)) * nT;
+                            nTrials_tot{iBlk}(lstChInc(iCh),iC) = nTrials_tot{iBlk}(lstChInc(iCh),iC) + nT;
+                        end
+                    end
+                end
+            end
+            
+            if ~isempty(grp1)
+                for iC = 1:size(grp1,3)
+                    for iCh = 1:size(grp1,2)
+                        yAvg(:,iCh,iC) = grp1(:,iCh,iC) / nTrials_tot{iBlk}(iCh,iC);
+                                                
+                        %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages. 
+                        %%%% Now we can set channel descriptors for avg and standard deviation
+                        if iSess == length(yAvgRuns)
+                            yAvgOut(iBlk).AddChannelDod(ml(iCh,1), ml(iCh,2), ml(iCh,4), iC);
+                        end
+                    end
+                    
+                    %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages.
+                    %%%% Now we can set channel descriptors for avg and standard deviation
+                    if iSess == length(yAvgRuns)
+                        yAvgOut(iBlk).AppendDataTimeSeries(yAvg(:,:,iC));
+                    end
+                end
+            end
+            
+        elseif strncmp(datatype{1}, 'HRF Hb', length('HRF Hb'))
+            
+            if isempty(grp1)
+                grp1 = zeros(size(yAvg,1), size(yAvg,2), size(yAvg,3), nCond);
+                nTrials_tot{iBlk} = zeros(size(yAvg,3), nCond);
+            end
+            
+            lstChInc = find(mlAct==1);
+            for iC = 1:1:nCond
+                nT = nTrials(iC);
+                if nT>0
+                    if iSess==1
+                        grp1(:,:,lstChInc,iC) = yAvg(:,:,lstChInc,iC) * nT;
+                        nTrials_tot{iBlk}(lstChInc,iC) = nT;
+                    else
+                        for iCh=1:length(lstChInc) %size(yAvg,3)
+                            for iHb=1:size(yAvg,2)
+                                % Make sure 3rd arg to interp1 is column vector to guarauntee interp1 output is column vector
+                                % which matches grp1 dimensions when adding the two.
+                                grp1(:,iHb,lstChInc(iCh),iC) = grp1(:,iHb,lstChInc(iCh),iC) + interp1(tHRF,yAvg(:,iHb,lstChInc(iCh),iC),tHRF(:)) * nT;
+                            end
+                            nTrials_tot{iBlk}(lstChInc(iCh),iC) = nTrials_tot{iBlk}(lstChInc(iCh),iC) + nT;
+                        end
+                    end
+                end
+            end
+            
+            if ~isempty(grp1)
+                for iC = 1:size(grp1,4)
+                    for iCh = 1:size(grp1,3)
+                        yAvg(:,:,iCh,iC) = grp1(:,:,iCh,iC) / nTrials_tot{iBlk}(iCh,iC);
+                                                
+                        %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages. 
+                        %%%% Now we can set channel descriptors for avg and standard deviation
+                        if iSess == length(yAvgRuns)
+                            yAvgOut(iBlk).AddChannelHbO(ml(iCh,1), ml(iCh,2), iC);
+                            yAvgOut(iBlk).AddChannelHbR(ml(iCh,1), ml(iCh,2), iC);
+                            yAvgOut(iBlk).AddChannelHbT(ml(iCh,1), ml(iCh,2), iC);
+                        end
+                    end
+                    
+                    %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages.
+                    %%%% Now we can set channel descriptors for avg and standard deviation
+                    if iSess == length(yAvgSess)
+                        yAvgOut(iBlk).AppendDataTimeSeries(yAvg(:,:,:,iC));
+                    end
+                end                
+            end            
+        end
+    end
+end
+nTrials = nTrials_tot;
+
+if all(err<0)
+    MessageBox('Warning: All run input to hmrS_SessAvg.m is empty.')
+end
+
