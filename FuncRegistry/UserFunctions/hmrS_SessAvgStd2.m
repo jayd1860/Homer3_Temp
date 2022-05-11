@@ -16,31 +16,31 @@
 % yAvgStdErrOut: the standard error across runs.trials
 %
 % USAGE OPTIONS:
-% Run_Average_Standard_Deviation_on_Concentration_Data:  [dcAvgStd, dcAvgStdErr]  = hmrS_SessAvgStd2(dcAvgStdRuns, nTrialsRuns)
+% Run_Average_Standard_Deviation_on_Concentration_Data:  [dcAvgStd, dcAvgStdErr]  = hmrS_SessAvgStd2(dcAvgStdSess, nTrialsSess)
 %
 
-function [yAvgStdOut, yAvgStdErrOut] = hmrS_SessAvgStd2(yAvgStdRuns, nTrialsRuns)
+function [yAvgStdOut, yAvgStdErrOut] = hmrS_SessAvgStd2(yAvgStdSess, nTrialsSess)
 
 yAvgStdOut = DataClass();
 yAvgStdErrOut = DataClass();
 
-if isempty(yAvgStdRuns)
+if isempty(yAvgStdSess)
     return
 end
-if isempty(nTrialsRuns)
+if isempty(nTrialsSess)
     return
 end
 
 N = 0;
 var = 0;
-nDataBlks = length(yAvgStdRuns{1});
+nDataBlks = length(yAvgStdSess{1});
 
 % find max nCond
-for i = 1:size(nTrialsRuns, 2)
-    if isempty(nTrialsRuns{i})
+for i = 1:size(nTrialsSess, 2)
+    if isempty(nTrialsSess{i})
         return;
     else
-        niC(i) = size(nTrialsRuns{i}{1},2);
+        niC(i) = size(nTrialsSess{i}{1},2);
     end
 end
 niC = max(niC);
@@ -49,17 +49,17 @@ for iBlk = 1:nDataBlks
     
     nTrials = zeros(1,niC);
     for iC = 1:niC
-        for iRun = 1:length(nTrialsRuns)
-            if ~isempty(nTrialsRuns{iRun}{iBlk})
-                nTrials(iC) = nTrials(iC) + nTrialsRuns{iRun}{1}(iC);
+        for iSess = 1:length(nTrialsSess)
+            if ~isempty(nTrialsSess{iSess}{iBlk})
+                nTrials(iC) = nTrials(iC) + nTrialsSess{iSess}{1}(iC);
             end
         end
     end
     
-    % get tHRF and ml from yAvgRuns
-    for iRun = 1:length(yAvgStdRuns)
-        tHRF    = yAvgStdRuns{iRun}(iBlk).GetTime();
-        ml    = yAvgStdRuns{iRun}(iBlk).GetMeasListSrcDetPairs();
+    % get tHRF and ml from yAvgSess
+    for iSess = 1:length(yAvgStdSess)
+        tHRF    = yAvgStdSess{iSess}(iBlk).GetTime();
+        ml    = yAvgStdSess{iSess}(iBlk).GetMeasListSrcDetPairs();
         if ~isempty(ml)
             break
         end
@@ -70,20 +70,20 @@ for iBlk = 1:nDataBlks
     for iC = 1:niC % across conditions
         
         % get total number of trials per given condition
-        for iRun = 1:length(yAvgStdRuns)
-            if ~isempty(nTrialsRuns{iRun}{iBlk})
-                N = N + nTrialsRuns{iRun}{iBlk}(iC);
+        for iSess = 1:length(yAvgStdSess)
+            if ~isempty(nTrialsSess{iSess}{iBlk})
+                N = N + nTrialsSess{iSess}{iBlk}(iC);
             end
         end
         
         %         if N ~= 0
         % get average of variance across runs weighted by number of trials within a run
-        for iRun = 1:length(yAvgStdRuns)
-            if  ~isempty(nTrialsRuns{iRun}{iBlk})
-                if nTrialsRuns{iRun}{iBlk}(iC) ~= 0
-                    yAvgStd    = yAvgStdRuns{iRun}(iBlk).GetDataTimeSeries('reshape');
+        for iSess = 1:length(yAvgStdSess)
+            if  ~isempty(nTrialsSess{iSess}{iBlk})
+                if nTrialsSess{iSess}{iBlk}(iC) ~= 0
+                    yAvgStd    = yAvgStdSess{iSess}(iBlk).GetDataTimeSeries('reshape');
                     if isempty(yAvgStd) ~= 1
-                        var = var + (nTrialsRuns{iRun}{iBlk}(iC)-1)/(N-1) * yAvgStd(:,:,:,iC).^2;
+                        var = var + (nTrialsSess{iSess}{iBlk}(iC)-1)/(N-1) * yAvgStd(:,:,:,iC).^2;
                     end
                 end
             end

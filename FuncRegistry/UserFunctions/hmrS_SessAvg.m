@@ -20,44 +20,44 @@
 % Sess_Average_on_Concentration_Data:  [dcAvg, nTrials]  = hmrS_SessAvg(dcAvgSess, mlActSess, nTrialsSess)
 % Sess_Average_on_Delta_OD_Data:       [dodAvg, nTrials] = hmrS_SessAvg(dodAvgSess, mlActSess, nTrialsSess)
 %
-function [yAvgOut, nTrials] = hmrS_SessAvg(yAvgRuns, mlActRuns, nTrialsRuns)
+function [yAvgOut, nTrials] = hmrS_SessAvg(yAvgSess, mlActSess, nTrialsSess)
 
 yAvgOut    = DataClass().empty();
 
-nDataBlks = length(yAvgRuns{1});
+nDataBlks = length(yAvgSess{1});
 nTrials_tot = cell(nDataBlks,1);
-err = zeros(nDataBlks, length(yAvgRuns));
+err = zeros(nDataBlks, length(yAvgSess));
 
 for iBlk = 1:nDataBlks
     
     grp1 = [];
     
-    for iSess = 1:length(yAvgRuns)
+    for iSess = 1:length(yAvgSess)
             
         yAvgOut(iBlk) = DataClass();
         
-        yAvg      = yAvgRuns{iSess}(iBlk).GetDataTimeSeries('reshape');
+        yAvg      = yAvgSess{iSess}(iBlk).GetDataTimeSeries('reshape');
         if isempty(yAvg)
             err(iBlk, iSess) = -1;
             continue;
         end
-        tHRF      = yAvgRuns{iSess}(iBlk).GetTime();
-        nTrials   = nTrialsRuns{iSess}{iBlk};
-        if isempty(mlActRuns{iSess})
-            mlActRuns{iSess} = cell(length(nDataBlks),1);
+        tHRF      = yAvgSess{iSess}(iBlk).GetTime();
+        nTrials   = nTrialsSess{iSess}{iBlk};
+        if isempty(mlActSess{iSess})
+            mlActSess{iSess} = cell(length(nDataBlks),1);
         end
         
         % 
-        datatype  = yAvgRuns{iSess}(iBlk).GetDataTypeLabel();
+        datatype  = yAvgSess{iSess}(iBlk).GetDataTypeLabel();
         if strncmp(datatype{1}, 'HRF Hb', length('HRF Hb'))
-            ml    = yAvgRuns{iSess}(iBlk).GetMeasListSrcDetPairs();
+            ml    = yAvgSess{iSess}(iBlk).GetMeasListSrcDetPairs();
         elseif strcmp(datatype{1}, 'HRF dOD')
-            ml    = yAvgRuns{iSess}(iBlk).GetMeasList();
+            ml    = yAvgSess{iSess}(iBlk).GetMeasList();
         end
-        if isempty(mlActRuns{iSess}{iBlk})
-            mlActRuns{iSess}{iBlk} = ones(size(ml,1),1);
+        if isempty(mlActSess{iSess}{iBlk})
+            mlActSess{iSess}{iBlk} = ones(size(ml,1),1);
         end
-        mlAct = mlActRuns{iSess}{iBlk}(1:size(ml,1));
+        mlAct = mlActSess{iSess}{iBlk}(1:size(ml,1));
                 
         nCond = size(nTrials,2);
         yAvgOut(iBlk).SetTime(tHRF);
@@ -94,14 +94,14 @@ for iBlk = 1:nDataBlks
                                                 
                         %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages. 
                         %%%% Now we can set channel descriptors for avg and standard deviation
-                        if iSess == length(yAvgRuns)
+                        if iSess == length(yAvgSess)
                             yAvgOut(iBlk).AddChannelDod(ml(iCh,1), ml(iCh,2), ml(iCh,4), iC);
                         end
                     end
                     
                     %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages.
                     %%%% Now we can set channel descriptors for avg and standard deviation
-                    if iSess == length(yAvgRuns)
+                    if iSess == length(yAvgSess)
                         yAvgOut(iBlk).AppendDataTimeSeries(yAvg(:,:,iC));
                     end
                 end
@@ -141,7 +141,7 @@ for iBlk = 1:nDataBlks
                                                 
                         %%%% Snirf stuff: Once we get to the last run, we've accumulated our averages. 
                         %%%% Now we can set channel descriptors for avg and standard deviation
-                        if iSess == length(yAvgRuns)
+                        if iSess == length(yAvgSess)
                             yAvgOut(iBlk).AddChannelHbO(ml(iCh,1), ml(iCh,2), iC);
                             yAvgOut(iBlk).AddChannelHbR(ml(iCh,1), ml(iCh,2), iC);
                             yAvgOut(iBlk).AddChannelHbT(ml(iCh,1), ml(iCh,2), iC);
