@@ -79,8 +79,8 @@ classdef TreeNodeClass < handle
     methods
         
         % ---------------------------------------------------------------------------------
-        function LoadProcStreamConfigFile(obj, filename)
-            obj.procStream.LoadConfigFile(filename, class(obj));
+        function err = LoadProcStreamConfigFile(obj, filename)
+            err = obj.procStream.LoadConfigFile(filename, class(obj));
         end        
         
                 
@@ -778,9 +778,50 @@ classdef TreeNodeClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function tblcells = ExportMeanHRF(~, ~, ~)
-            tblcells = {};
+        function tblcells = ExportMeanHRF(obj, trange, iBlk)
+            if ~exist('trange','var') || isempty(trange)
+                trange = [];
+            end
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
+            end
+                        
+            nCh   = obj.procStream.GetNumChForOneCondition(iBlk);
+            nCond = length(obj.CondNames);
+            nSubj = length(obj.subjs);
+            
+            % Determine table dimensions            
+            nHdrRows = 3;               % Blank line + name of columns
+            nHdrCols = 2;               % Condition name + subject name
+            nDataRows = nSubj*nCond;    
+            nDataCols = nCh;                 % Number of channels for one condition (for example, if data type is Hb Conc: (HbO + HbR + HbT) * num of SD pairs)
+            nTblRows = nDataRows + nHdrRows;
+            nTblCols = nDataCols + nHdrCols;
+            cellwidthCond = max(length('Condition'), obj.CondNameSizeMax());
+            cellwidthSubj = max(length('%s Name'), obj.name, obj.SubjNameSizeMax());
+            
+            %%%% Initialize 2D array of TableCell objects with the above row * column dimensions            
+            tblcells = repmat(TableCell(), nTblRows, nTblCols);
+            
+            % Header row: Condition, Subject Name, HbO,1,1, HbR,1,1, HbT,1,1, ...
+            tblcells(2,1) = TableCell('Condition', cellwidthCond);
+            tblcells(2,2) = TableCell('%s Name', obj.name, cellwidthSubj);
+            [tblcells(2,3:end), cellwidthData] = obj.procStream.GenerateTableCellsHeader_MeanHRF(iBlk);
+            
+            % Generate data rows
+            for iSubj = 1:nSubj
+                rowIdxStart = ((iSubj-1)*nCond)+1 + nHdrRows;
+                rowIdxEnd   = rowIdxStart + nCond - 1;
+                
+                tblcells(rowIdxStart:rowIdxEnd, 1:2)        = obj.subjs(iSubj).GenerateTableCellsHeader_MeanHRF(cellwidthCond, cellwidthSubj);
+                tblcells(rowIdxStart:rowIdxEnd, 3:nTblCols) = obj.subjs(iSubj).GenerateTableCells_MeanHRF(trange, cellwidthData, iBlk);
+            end
+            
+            % Create ExportTable initialized with the filled in 2D TableCell array. 
+            % ExportTable object is what actually does the exporting to a file. 
+            ExportTable([obj.path, obj.outputDirname, obj.name], 'HRF mean', tblcells);
         end
+                        
         
         
         % ----------------------------------------------------------------------------------

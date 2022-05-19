@@ -1832,7 +1832,7 @@ ExportSnirfGUI(maingui.dataTree.currElem);
 
 
 % --------------------------------------------------------------------
-function menuItemExportSubjHRFMean_Callback(hObject, eventdata, handles)
+function menuItemExportHRFMean_Callback(hObject, eventdata, handles)
 global maingui
 
 if  ~maingui.dataTree.currElem.IsGroup()

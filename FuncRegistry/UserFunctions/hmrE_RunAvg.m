@@ -23,16 +23,30 @@
 function [yAvgOut, nTrials] = hmrE_RunAvg(yAvgRuns, mlActRuns, nTrialsRuns)
 
 yAvgOut    = DataClass().empty();
+nTrials    = 0;
 
-nDataBlks = length(yAvgRuns{1});
+% It is not guaranteed that every run has a non-empty DataClass object
+% Therefore look for indices only of non-empty run data 
+iRunNonEmpty = [];
+for iRun = 1:length(yAvgRuns)
+    if ~isempty(yAvgRuns{iRun})
+        iRunNonEmpty = [iRunNonEmpty, iRun]; %#ok<AGROW>
+    end
+end
+
+% If iRunNonEmpty is zero then thered is no data to work with hete. Exit.
+if isempty(iRunNonEmpty)
+    return;
+end
+
+nDataBlks = length(yAvgRuns{iRunNonEmpty(1)});
 nTrials_tot = cell(nDataBlks,1);
 err = zeros(nDataBlks, length(yAvgRuns));
-
 for iBlk = 1:nDataBlks
     
     grp1 = [];
     
-    for iRun = 1:length(yAvgRuns)
+    for iRun = iRunNonEmpty
             
         yAvgOut(iBlk) = DataClass();
         

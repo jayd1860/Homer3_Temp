@@ -32,7 +32,7 @@ exportvar.format = '';
 exportvar.formatchoices = {'.txt'};
 
 exportvar.datatype = '';
-exportvar.datatypechoices = {'HRF','Subjects HRF mean'};
+exportvar.datatypechoices = {'HRF','HRF mean'};
 
 exportvar.trange = [0,0];
 
