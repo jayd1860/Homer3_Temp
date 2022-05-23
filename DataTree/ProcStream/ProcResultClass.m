@@ -967,6 +967,18 @@ classdef ProcResultClass < handle
             tbl = ExportTable(filename, 'HRF', tblcells);
         end
         
+        
+        
+        % ----------------------------------------------------------------------------------
+        function tbl = ExportMeanHRF(obj, filename, tblcells)            
+            [p, f] = fileparts(obj.SetFilename(filename));
+            filename = [filesepStandard(p, 'nameonly:dir'), f];
+                        
+            % Create table export data to file
+            tbl = ExportTable(filename, 'HRF mean', tblcells);
+        end
+        
+        
     end
     
 end
