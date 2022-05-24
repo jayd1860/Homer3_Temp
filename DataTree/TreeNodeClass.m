@@ -757,10 +757,9 @@ classdef TreeNodeClass < handle
                     obj.children(ii).ExportHRF('all', iBlk);
                 end
             end            
+            obj.logger.Write('Exporting  %s', [obj.path, obj.GetOutputFilename()]);
 
             % Update call application GUI using it's generic Update function
-            obj.logger.Write('Exporting HRF %s', [obj.path, obj.GetOutputFilename()]);
-
             if ~isempty(obj.updateParentGui)
                 obj.updateParentGui('DataTreeClass', [obj.iGroup, obj.iSubj, obj.iSess, obj.iRun]);
             end
@@ -769,6 +768,44 @@ classdef TreeNodeClass < handle
             obj.procStream.Load([obj.path, obj.GetOutputFilename()]);
             if ~obj.DEBUG
                 obj.procStream.ExportHRF([obj.path, obj.GetOutputFilename()], obj.CondNames, iBlk);
+            end
+            pause(.5);
+        end
+    
+        
+        % ----------------------------------------------------------------------------------
+        function ExportMeanHRF(obj, procElemSelect, trange, iBlk)
+            if ~exist('procElemSelect','var') || isempty(procElemSelect)
+                q = MenuBox('Export only current element OR current element and all current element''s data ?', ...
+                            {'Current data element only','Current element and all it''s data','Cancel'});
+                if q==1
+                    procElemSelect  = 'current';
+                elseif q==2
+                    procElemSelect  = 'all';
+                else
+                    return
+                end
+            end
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
+            end
+
+            if strcmp(procElemSelect, 'all')
+                for ii = 1:length(obj.children)
+                    obj.children(ii).ExportMeanHRF(trange, iBlk);
+                end
+            end            
+            obj.logger.Write('Exporting HRF mean %s', [obj.path, obj.GetOutputFilename()]);
+
+            % Update call application GUI using it's generic Update function
+            if ~isempty(obj.updateParentGui)
+                obj.updateParentGui('DataTreeClass', [obj.iGroup, obj.iSubj, obj.iSess, obj.iRun]);
+            end
+            
+            % Load derived data and export it
+            obj.procStream.Load([obj.path, obj.GetOutputFilename()]);
+            if ~obj.DEBUG
+                obj.procStream.ExportMeanHRF([obj.path, obj.GetOutputFilename()], obj.CondNames, trange, iBlk);
             end
             pause(.5);
         end
@@ -814,93 +851,16 @@ classdef TreeNodeClass < handle
             k = strfind(temp, 'Class');
             typelabel = temp(1:k-1);            
         end        
+                                
         
         
         % ----------------------------------------------------------------------------------
-        function tblcells = ExportMeanHRF(obj, procElemSelect, trange, iBlk)
-            tblcells = [];
-            if isempty(obj.children)
-                return
-            end
-            if ~exist('trange','var') || isempty(trange)
-                trange = [];
-            end
-            if ~exist('iBlk','var') || isempty(iBlk)
-                iBlk = 1;
-            end
-            
-            
-            %%%%% First export child data if user asked  
-            nChild = length(obj.children);            
-            if strcmp(procElemSelect, 'all')
-                for iChild = 1:nChild
-                    obj.children(iChild).ExportMeanHRF(procElemSelect, trange, iBlk);
-                end
-            end
-
-            
-            %%%%% Now export parent data 
-            obj.logger.Write('Exporting HRF mean %s', [obj.path, obj.GetOutputFilename()]);
-
-            nCh   = obj.procStream.GetNumChForOneCondition(iBlk);
-            nCond = length(obj.CondNames);
-
-            % Determine table dimensions            
-            nHdrRows = 3;               % Blank line + name of columns
-            nHdrCols = 2;               % Condition name + subject name
-            nDataRows = nChild*nCond;    
-            nDataCols = nCh;                 % Number of channels for one condition (for example, if data type is Hb Conc: (HbO + HbR + HbT) * num of SD pairs)
-            nTblRows = nDataRows + nHdrRows;
-            nTblCols = nDataCols + nHdrCols;
-            cellwidthCond = max(length('Condition'), obj.CondNameSizeMax());
-            cellwidthChild = max(length(sprintf('%s Name', obj.GetChildTypeLabel())), obj.NameSizeMax());
-            
-            % Initialize 2D array of TableCell objects with the above row * column dimensions            
-            tblcells = repmat(TableCell(), nTblRows, nTblCols);
-            
-            % Header row: Condition, Subject Name, HbO,1,1, HbR,1,1, HbT,1,1, ...
-            tblcells(2,1) = TableCell('Condition', cellwidthCond);
-            tblcells(2,2) = TableCell(sprintf('%s Name',  obj.GetChildTypeLabel()), cellwidthChild);
-            [tblcells(2,3:end), cellwidthData] = obj.procStream.GenerateTableCellsHeader_MeanHRF(iBlk);
-            
-            % Generate data rows
-            for iChild = 1:nChild
-                rowIdxStart = ((iChild-1)*nCond)+1 + nHdrRows;
-                rowIdxEnd   = rowIdxStart + nCond - 1;
-                
-                c = obj.children(iChild).GenerateTableCellsHeader_MeanHRF(cellwidthCond, cellwidthChild);
-                if isempty(c)
-                    continue
-                end
-                tblcells(rowIdxStart:rowIdxEnd, 1:2) = c;
-                
-                c = obj.children(iChild).GenerateTableCells_MeanHRF(trange, cellwidthData, iBlk);
-                if isempty(c)
-                    continue
-                end
-                tblcells(rowIdxStart:rowIdxEnd, 3:nTblCols) = c;
-            end
-            
-            % Update call application GUI using it's generic Update function
-            if ~isempty(obj.updateParentGui)
-                obj.updateParentGui('DataTreeClass', [obj.iGroup, obj.iSubj, obj.iSess, obj.iRun]);
-            end
-            
-            % Create ExportTable initialized with the filled in 2D TableCell array. 
-            % ExportTable object is what actually does the exporting to a file.
-            obj.procStream.ExportMeanHRF([obj.path, obj.GetOutputFilename()], tblcells);            
-            pause(.5);
-        end
-                        
-        
-        
-        % ----------------------------------------------------------------------------------
-        function tblcells = GenerateTableCellsHeader_MeanHRF(obj, widthCond, widthChild)
+        function tblcells = GenerateTableCellsHeader_MeanHRF(obj, widthCond, widthSubj)
             tblcells = repmat(TableCell(), length(obj.CondNames), 2);
             for iCond = 1:length(obj.CondNames)
                 % First 2 columns contain condition name and group, subject or session name
                 tblcells(iCond, 1) = TableCell(obj.CondNames{iCond}, widthCond);
-                tblcells(iCond, 2) = TableCell(obj.name, widthChild);
+                tblcells(iCond, 2) = TableCell(obj.name, widthSubj);
             end
         end
         

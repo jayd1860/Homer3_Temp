@@ -838,58 +838,6 @@ classdef ProcResultClass < handle
     methods
         
         % ----------------------------------------------------------------------------------
-        function [tblcells, maxwidth] = GenerateTableCellsHeader_MeanHRF(obj, iBlk)
-            if nargin<5
-                iBlk = 1;
-            end
-            tblcells = TableCell.empty();
-            maxwidth = length('HRF HbX,999,999');
-            if isa(obj.dcAvg, 'DataClass')
-                measList = obj.dcAvg(iBlk).measurementList;
-                measListIdxs = obj.dcAvg(iBlk).GetMeasurementListIdxs(1);
-                for iCh = measListIdxs
-                    tblcells(1,iCh) = TableCell(sprintf('%s,%d,%d', measList(iCh).dataTypeLabel, measList(iCh).sourceIndex, measList(iCh).detectorIndex), maxwidth);
-                end
-            end
-        end
-        
-        
-        % ----------------------------------------------------------------------------------
-        function tblcells = GenerateTableCells_MeanHRF(obj, name, CondNames, trange, width, iBlk)
-            if ~exist('trange','var') || isempty(trange) || all(trange==0)
-                trange = [obj.tHRF(1), obj.tHRF(end)];
-            end
-            if ~exist('width','var') || isempty(width)
-                width = 12;
-            end
-            if ~exist('iBlk','var') || isempty(iBlk)
-                iBlk = 1;
-            end
-            tblcells = TableCell.empty();
-            if isa(obj.dcAvg, 'DataClass')
-                dataTimeSeries = obj.dcAvg(iBlk).GetDataTimeSeries('');
-                h = waitbar_improved(0, sprintf('Generating table cells for export ... 0%% complete.'));
-                % Data rows
-                for iCond = 1:length(CondNames)
-                    waitbar_improved(iCond/length(CondNames), h, sprintf('Generating table cells for export ... %d%% complete.', uint32(100 * iCond/length(CondNames))));
-                    measListIdxs = obj.dcAvg(iBlk).GetMeasurementListIdxs(iCond);
-                    for iCh = measListIdxs
-                        iT = (obj.dcAvg.time >= trange(1)) & (obj.dcAvg.time <= trange(2));
-                        meanData = mean(dataTimeSeries(iT,iCh));
-                        if isnan(meanData)
-                            cname  = 'N/A';
-                        else
-                            cname = sprintf('%s%0.5e', blanks(meanData>=0), meanData);
-                        end
-                        tblcells(iCond, mod(iCh-1, length(measListIdxs))+1) = TableCell(cname, width);
-                    end
-                end
-                close(h);
-            end
-        end
-        
-        
-        % ----------------------------------------------------------------------------------
         function tblcells = GenerateTableCells_HRF(obj, CondNames, iBlk)
             tblcells = [];
             
@@ -952,6 +900,60 @@ classdef ProcResultClass < handle
         
         
         % ----------------------------------------------------------------------------------
+        function tblcells = GenerateTableCells_MeanHRF(obj, CondNames, trange, iBlk)
+            tblcells = [];
+            
+            if ~isa(obj.dcAvg, 'DataClass')
+                return
+            end
+            if isempty(obj.dcAvg)
+                return
+            end
+            if obj.dcAvg.IsEmpty()
+                return
+            end
+            
+            if nargin<3
+                iBlk = 1;
+            end
+            
+            tblcells = TableCell.empty();
+            
+            dataTimeSeries  = obj.dcAvg(iBlk).GetDataTimeSeries();
+            time            = obj.dcAvg(iBlk).GetTime();
+            measList        = obj.dcAvg(iBlk).measurementList;
+            
+            % Header: row containing stim condition name
+            tblcells(2,1) = TableCell('', 12);      % Make space for time column
+            for iCh = 1:length(measList)
+                tblcells(1,iCh+1) = TableCell(sprintf('%s', CondNames{measList(iCh).dataTypeIndex}), 12);
+            end
+            
+            % Header: row containing time label followed by Hb type
+            tblcells(2,1) = TableCell('time', 12);
+            for iCh = 1:length(measList)
+                tblcells(2,iCh+1) = TableCell(sprintf('%s,%d,%d', measList(iCh).dataTypeLabel, measList(iCh).sourceIndex, measList(iCh).detectorIndex), 12);
+            end
+            
+            % Data rows
+            h = waitbar_improved(0, sprintf('Generating table cells for export ... 0%% complete.'));
+            
+            % data
+            for iCh = 1:length(measList)
+                if isnan(dataTimeSeries(t,iCh))
+                    cname  = 'NaN';
+                else
+                    iT = (time >= trange(1)) & (time <= trange(2));
+                    cname = sprintf('%s%0.5e', blanks(mean(dataTimeSeries(iT,iCh)) >= 0), mean(dataTimeSeries(iT,iCh)));
+                end
+                tblcells(t+2,iCh+1) = TableCell(cname, 12);
+            end
+            
+            close(h);
+        end
+        
+        
+        % ----------------------------------------------------------------------------------
         function tbl = ExportHRF(obj, filename, CondNames, iBlk)
             if ~exist('iBlk','var') || isempty(iBlk)
                 iBlk = 1;
@@ -970,14 +972,20 @@ classdef ProcResultClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function tbl = ExportMeanHRF(obj, filename, tblcells)            
+        function tbl = ExportMeanHRF(obj, filename, CondNames, trange, iBlk)
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
+            end
+            
+            % Generate table cells
+            tblcells = obj.GenerateTableCells_MeanHRF(CondNames, trange, iBlk);
+            
             [p, f] = fileparts(obj.SetFilename(filename));
             filename = [filesepStandard(p, 'nameonly:dir'), f];
-                        
+            
             % Create table export data to file
-            tbl = ExportTable(filename, 'HRF mean', tblcells);
+            tbl = ExportTable(filename, 'HRF Mean', tblcells);
         end
-        
         
     end
     

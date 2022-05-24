@@ -1719,10 +1719,12 @@ classdef ProcStreamClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function ExportMeanHRF(obj, filename, tblcells)
-            obj.output.ExportMeanHRF(filename, tblcells);
+        function ExportMeanHRF(obj, filename, CondNames, trange, iBlk)
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
+            end
+            obj.output.ExportMeanHRF(filename, CondNames, trange, iBlk);
         end
-        
         
     end
     
