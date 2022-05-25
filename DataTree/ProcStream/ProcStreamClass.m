@@ -233,16 +233,6 @@ classdef ProcStreamClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function paramsOutStruct = CalcDefault(obj)
-            paramsOutStruct = struct();
-            if exist('hmrE_CalcAvg','file')
-                paramsOutStruct = hmrE_CalcAvg(obj.input.misc);
-            end
-        end
-        
-        
-        
-        % ----------------------------------------------------------------------------------
         function fcall = GenerateFuncCallString(obj, iFcall)            
             funcName = obj.GetFuncCallName(iFcall);
             
@@ -279,7 +269,7 @@ classdef ProcStreamClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function Calc(obj, filename)
+        function fcalls = Calc(obj, filename)
             if ~exist('filename','var')
                 filename = '';
             end
@@ -290,69 +280,62 @@ classdef ProcStreamClass < handle
             
             paramsOutStruct = struct();
             hwait = waitbar(0, 'Processing...' );
-            if nFcall==0
-            
-                paramsOutStruct = obj.CalcDefault();
 
-            else
+            paramOut = {};
+            for iFcall = FcallsIdxs
+                waitbar( iFcall/nFcall, hwait, sprintf('Processing... %s', obj.GetFcallNamePrettyPrint(iFcall)) );
                 
-                paramOut = {};
-            	for iFcall = FcallsIdxs
-	                waitbar( iFcall/nFcall, hwait, sprintf('Processing... %s', obj.GetFcallNamePrettyPrint(iFcall)) );
-	                
-	                % Instantiate all input variables required by function call
-	                argIn = obj.GetInputArgs(iFcall);
-                    for ii = 1:length(argIn)
-                        if ~exist(argIn{ii},'var')
-                            eval(sprintf('%s = obj.input.GetVar(''%s'');', argIn{ii}, argIn{ii}));
-                        end
+                % Instantiate all input variables required by function call
+                argIn = obj.GetInputArgs(iFcall);
+                for ii = 1:length(argIn)
+                    if ~exist(argIn{ii},'var')
+                        eval(sprintf('%s = obj.input.GetVar(''%s'');', argIn{ii}, argIn{ii}));
                     end
-	                
-                    fcall = obj.GenerateFuncCallString(iFcall);
-                    
-	                try
-	                    eval( fcall );
-	                catch ME
-	                    msg = sprintf('Function %s generated error at line %d: %s', obj.fcalls(iFcall).name, ME.stack(1).line, ME.message);
-	                    if strcmp(obj.config.regressionTestActive, 'false')
-	                        MessageBox(msg);
-	                    elseif strcmp(obj.config.regressionTestActive, 'false')
-	                        fprintf('%s\n', msg);
-	                    end
-	                    close(hwait);
-	                    rethrow(ME)
-	                end
-	                
-	                %%%% Parse output parameters
-	                
-	                % remove '[', ']', and ','
-	                foos = obj.fcalls(iFcall).argOut.str;
-	                for ii=1:length(foos)
-	                    if foos(ii)=='[' || foos(ii)==']' || foos(ii)==',' || foos(ii)=='#'
-	                        foos(ii) = ' ';
-	                    end
-	                end
-	                
-	                % get parameters for Output to obj.output
-	                lst = strfind(foos,' ');
-	                lst = [0, lst, length(foos)+1]; %#ok<*AGROW>
-	                for ii=1:length(lst)-1
-	                    foo2 = foos(lst(ii)+1:lst(ii+1)-1);
-	                    lst2 = strmatch( foo2, paramOut, 'exact' ); %#ok<MATCH3>
-	                    idx = strfind(foo2,'foo');
-	                    if isempty(lst2) && (isempty(idx) || idx>1) && ~isempty(foo2)
-	                        paramOut{end+1} = foo2;
-	                    end
-	                end
-	            end
-	            
-	            % Copy paramOut to output
-	            for ii=1:length(paramOut)
-	                eval( sprintf('paramsOutStruct.%s = %s;', paramOut{ii}, paramOut{ii}) );
-	            end
-            
+                end
+                
+                fcalls{iFcall} = obj.GenerateFuncCallString(iFcall);
+                
+                try
+                    eval( fcalls{iFcall} );
+                catch ME
+                    msg = sprintf('Function %s generated error at line %d: %s', obj.fcalls(iFcall).name, ME.stack(1).line, ME.message);
+                    if strcmp(obj.config.regressionTestActive, 'false')
+                        MessageBox(msg);
+                    elseif strcmp(obj.config.regressionTestActive, 'false')
+                        fprintf('%s\n', msg);
+                    end
+                    close(hwait);
+                    rethrow(ME)
+                end
+                
+                %%%% Parse output parameters
+                
+                % remove '[', ']', and ','
+                foos = obj.fcalls(iFcall).argOut.str;
+                for ii=1:length(foos)
+                    if foos(ii)=='[' || foos(ii)==']' || foos(ii)==',' || foos(ii)=='#'
+                        foos(ii) = ' ';
+                    end
+                end
+                
+                % get parameters for Output to obj.output
+                lst = strfind(foos,' ');
+                lst = [0, lst, length(foos)+1]; %#ok<*AGROW>
+                for ii=1:length(lst)-1
+                    foo2 = foos(lst(ii)+1:lst(ii+1)-1);
+                    lst2 = strmatch( foo2, paramOut, 'exact' ); %#ok<MATCH3>
+                    idx = strfind(foo2,'foo');
+                    if isempty(lst2) && (isempty(idx) || idx>1) && ~isempty(foo2)
+                        paramOut{end+1} = foo2;
+                    end
+                end
             end
             
+            % Copy paramOut to output
+            for ii = 1:length(paramOut)
+                eval( sprintf('paramsOutStruct.%s = %s;', paramOut{ii}, paramOut{ii}) );
+            end
+                     
             obj.output.Save(paramsOutStruct, filename);
             
             obj.input.misc = [];
@@ -1680,6 +1663,18 @@ classdef ProcStreamClass < handle
     methods        
         
         % ----------------------------------------------------------------------------------
+        function tblcells = GenerateTableCells_MeanHRF_Alt(obj, name, CondNames, trange, width, iBlk)
+            if nargin<4
+                width = 12;
+            end
+            if nargin<5
+                iBlk = 1;
+            end
+            tblcells = obj.output.GenerateTableCells_MeanHRF_Alt(name, CondNames, trange, width, iBlk);
+        end
+
+            
+        % ----------------------------------------------------------------------------------
         function [tblcells, maxwidth] = GenerateTableCellsHeader_MeanHRF(obj, iBlk)
             if nargin<2
                 iBlk = 1;
@@ -1724,6 +1719,12 @@ classdef ProcStreamClass < handle
                 iBlk = 1;
             end
             obj.output.ExportMeanHRF(filename, CondNames, trange, iBlk);
+        end
+        
+        
+        % ----------------------------------------------------------------------------------
+        function ExportMeanHRF_Alt(obj, filename, tblcells)
+            obj.output.ExportMeanHRF_Alt(filename, tblcells);
         end
         
     end

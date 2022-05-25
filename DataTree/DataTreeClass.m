@@ -628,10 +628,12 @@ classdef DataTreeClass <  handle
             obj.logger.Write('Completed saving processing results for all groups in %0.3f seconds.\n', toc(t1));
         end
 
-
+        
         % ----------------------------------------------------------
         function CalcCurrElem(obj)
-            obj.currElem.Calc();
+            obj.currElem.OpenProcFuncCalls();
+            obj.currElem.Calc();            
+            obj.currElem.CloseProcFuncCalls();
         end
 
         
