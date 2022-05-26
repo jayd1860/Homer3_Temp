@@ -733,7 +733,7 @@ classdef TreeNodeClass < handle
 
         % ----------------------------------------------------------------------------------
         function SaveProcFuncCalls(obj, fcalls)
-            fprintf(obj.ProcFuncCallsFile().fid, 'Index  =  [%d, %d, %d, %d]\n', obj.iGroup, obj.iSubj, obj.iSess, obj.iRun);
+            fprintf(obj.ProcFuncCallsFile().fid, '%s,  [%d, %d, %d, %d]\n', obj.GetName, obj.iGroup, obj.iSubj, obj.iSess, obj.iRun);
             for ii = 1:length(fcalls)
                 fprintf(obj.ProcFuncCallsFile().fid, '%s\n', fcalls{ii});
             end
@@ -746,20 +746,20 @@ classdef TreeNodeClass < handle
         function OpenProcFuncCalls(obj)            
             if obj.ProcFuncCallsFile().fid > 0
                 try
-                    obj.ProcFuncCallsFile(fclose(obj.ProcFuncCallsFile().fid));
+                    obj.ProcFuncCallsFile('close');
                 catch
                 end
             end
-            obj.ProcFuncCallsFile(fopen([obj.path, obj.outputDirname, obj.procFuncCallsFile.name], 'a'));
+            obj.ProcFuncCallsFile('open');
         end
         
         
         % ----------------------------------------------------------------------------------
         function CloseProcFuncCalls(obj)
-            if obj.procFuncCallsFile.fid == -1
+            if obj.ProcFuncCallsFile().fid == -1
                 return;
             end
-            obj.ProcFuncCallsFile(fclose(obj.ProcFuncCallsFile().fid));
+            obj.ProcFuncCallsFile('close');
         end        
         
                 
@@ -1239,8 +1239,16 @@ classdef TreeNodeClass < handle
         function out = ProcFuncCallsFile(arg)
             persistent file;
             if nargin == 1
-                if arg == 0
-                    file = struct('fid',-1, 'name',arg);
+                if ischar(arg)
+                    if strcmp(arg, 'open')
+                        file.fid = fopen(file.name, 'a');
+                    elseif strcmp(arg, 'close')
+                        fclose(file.fid);
+                    else
+                        file = struct('fid',-1, 'name',arg);
+                    end
+                elseif arg == 0
+                    file.fid = -1;
                 elseif arg > 0 
                     file.fid = arg;
                 end
