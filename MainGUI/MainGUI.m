@@ -523,7 +523,7 @@ Display(handles, hObject0);
 
 
 % --------------------------------------------------------------------
-function [eventdata, handles] = pushbuttonCalcProcStream_Callback(hObject, eventdata, handles) %#ok<DEFNU>
+function [eventdata, handles] = pushbuttonCalcProcStream_Callback(hObject, eventdata, handles)
 global maingui
 if ~ishandles(hObject)
     return;
