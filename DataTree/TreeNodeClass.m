@@ -22,7 +22,6 @@ classdef TreeNodeClass < handle
         logger
         pathOutputAlt        
         outputDirname
-        saveProcStream
         cfg
     end
     
@@ -52,7 +51,6 @@ classdef TreeNodeClass < handle
             obj.path = filesepStandard(pwd);            
             
             obj.outputDirname = filesepStandard(obj.cfg.GetValue('Output Folder Name'), 'nameonly:dir');
-            obj.saveProcStream = false;
             
             obj.InitParentAppFunc();
             obj.children = [];
@@ -735,53 +733,30 @@ classdef TreeNodeClass < handle
 
         % ----------------------------------------------------------------------------------
         function SaveProcFuncCalls(obj, fcalls)
-            if ~obj.saveProcStream 
+            if obj.ProcFuncCallsFile().fid < 0 
                 return
             end
+            fprintf(obj.ProcFuncCallsFile().fid, '%s\n', char(double('-') + zeros(1,length(obj.GetName)+length('.mat'))));
             fprintf(obj.ProcFuncCallsFile().fid, '%s.mat\n', obj.GetName);
-            fprintf(obj.ProcFuncCallsFile().fid, '%s\n', char(double('-') + zeros(1,length(obj.GetName))));
+            fprintf(obj.ProcFuncCallsFile().fid, '%s\n', char(double('-') + zeros(1,length(obj.GetName)+length('.mat'))));
             for ii = 1:length(fcalls)
                 fprintf(obj.ProcFuncCallsFile().fid, '%s\n', fcalls{ii});
             end
-            fprintf(obj.ProcFuncCallsFile().fid, '\n');
+            fprintf(obj.ProcFuncCallsFile().fid, '\n\n');
         end
         
         
         
         % ----------------------------------------------------------------------------------
-        function OpenProcFuncCalls(obj)            
-            obj.cfg = ConfigFileClass();            
-            val = obj.cfg.GetValue('Save Processing Stream');            
-            if strcmpi(val, 'no')
-                obj.saveProcStream = false;
-            elseif strcmpi(val, 'yes')
-                obj.saveProcStream = true;
-            end
-            
-            if ~obj.saveProcStream 
-                return
-            end
-            
-            if obj.ProcFuncCallsFile().fid > 0
-                try
-                    obj.ProcFuncCallsFile('close');
-                catch
-                end
-            end
+        function OpenProcFuncCalls(obj)
             obj.ProcFuncCallsFile('open');
         end
         
         
         % ----------------------------------------------------------------------------------
         function CloseProcFuncCalls(obj)
-            if ~obj.saveProcStream 
-                return
-            end
-            if obj.ProcFuncCallsFile().fid == -1
-                return;
-            end
             obj.ProcFuncCallsFile('close');
-        end        
+        end
         
                 
         % ----------------------------------------------------------------------------------
@@ -1262,9 +1237,24 @@ classdef TreeNodeClass < handle
             if nargin == 1
                 if ischar(arg)
                     if strcmp(arg, 'open')
-                        file.fid = fopen(file.name, 'a');
+                        obj.cfg = ConfigFileClass();
+                        val = obj.cfg.GetValue('Save Processing Stream');
+                        if strcmpi(val, 'no')
+                            file.fid = -1;
+                            return
+                        end                    
+                        if file.fid > 0
+                            try
+                                fclose(file.fid);
+                            catch
+                            end
+                        end
+                        file.fid = fopen(file.name, 'w');
                     elseif strcmp(arg, 'close')
-                        fclose(file.fid);
+                        try
+                            fclose(file.fid);
+                        catch
+                        end
                         file.fid = -1;
                     else
                         file = struct('fid',-1, 'name',arg);
@@ -1274,6 +1264,8 @@ classdef TreeNodeClass < handle
                 elseif arg > 0 
                     file.fid = arg;
                 end
+            elseif isempty(file)                
+                file = struct('fid',-1, 'name','');
             end
             out = file;
         end
