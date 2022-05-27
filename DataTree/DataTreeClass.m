@@ -631,9 +631,9 @@ classdef DataTreeClass <  handle
         
         % ----------------------------------------------------------
         function CalcCurrElem(obj)
-            obj.currElem.OpenProcFuncCalls();
+            obj.currElem.SaveProcStreamInit();
             obj.currElem.Calc();            
-            obj.currElem.CloseProcFuncCalls();
+            obj.currElem.SaveProcStreamClose();
         end
 
         

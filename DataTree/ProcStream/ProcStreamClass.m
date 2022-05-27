@@ -41,6 +41,7 @@ classdef ProcStreamClass < handle
                 return;
             end
             obj.CreateDefault();
+            obj.SaveProcStream(false);
         end
         
         
@@ -269,7 +270,7 @@ classdef ProcStreamClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function fcalls = Calc(obj, filename)
+        function fcalls = Calc(obj, filename)            
             if ~exist('filename','var')
                 filename = '';
             end
@@ -312,7 +313,7 @@ classdef ProcStreamClass < handle
                 
                 % remove '[', ']', and ','
                 foos = obj.fcalls(iFcall).argOut.str;
-                for ii=1:length(foos)
+                for ii = 1:length(foos)
                     if foos(ii)=='[' || foos(ii)==']' || foos(ii)==',' || foos(ii)=='#'
                         foos(ii) = ' ';
                     end
@@ -321,7 +322,7 @@ classdef ProcStreamClass < handle
                 % get parameters for Output to obj.output
                 lst = strfind(foos,' ');
                 lst = [0, lst, length(foos)+1]; %#ok<*AGROW>
-                for ii=1:length(lst)-1
+                for ii = 1:length(lst)-1
                     foo2 = foos(lst(ii)+1:lst(ii+1)-1);
                     lst2 = strmatch( foo2, paramOut, 'exact' ); %#ok<MATCH3>
                     idx = strfind(foo2,'foo');
@@ -338,6 +339,9 @@ classdef ProcStreamClass < handle
                      
             obj.output.Save(paramsOutStruct, filename);
             
+            % Save processing stream function calls
+            obj.ExportProcStream(filename, fcalls);
+            
             obj.input.misc = [];
             close(hwait);
             
@@ -351,7 +355,32 @@ classdef ProcStreamClass < handle
         end
         
         
-        
+        % ----------------------------------------------------------------------------------        
+        function ExportProcStream(obj, filename, fcalls)
+            global logger             
+            temp = obj.output.SetFilename(filename);
+            if isempty(temp)
+                return;
+            end
+            [p,f] = fileparts(temp); 
+            fname = [filesepStandard(p), f, '_ProcStream.txt'];
+            if obj.SaveProcStream()==true
+                fid = fopen(fname, 'w');                
+                logger.Write('Saving processing stream  %s:\n', fname);
+                for ii = 1:length(fcalls)
+                    fprintf(fid, '%s\n', fcalls{ii});
+                end
+                fclose(fid);
+            else
+                if ispathvalid(fname)
+                    logger.Write('Deleting processing stream  %s:\n', fname);
+                    try
+                        delete(fname)
+                    catch
+                    end
+                end
+            end
+        end        
         
         
         % ----------------------------------------------------------------------------------        
@@ -1725,6 +1754,23 @@ classdef ProcStreamClass < handle
         % ----------------------------------------------------------------------------------
         function ExportMeanHRF_Alt(obj, filename, tblcells)
             obj.output.ExportMeanHRF_Alt(filename, tblcells);
+        end
+        
+    end
+    
+    
+    
+    methods (Static)
+        
+        % ----------------------------------------------------------------------------------
+        function out = SaveProcStream(arg)
+            persistent saveProcStream;
+            if nargin == 0
+                out = saveProcStream;
+                return;
+            end
+            saveProcStream = arg;
+            out = saveProcStream;
         end
         
     end

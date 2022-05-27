@@ -73,7 +73,6 @@ classdef TreeNodeClass < handle
             end
             obj.CondColTbl('init');
             obj.GroupDataLoadWarnings();
-            obj.ProcFuncCallsFile([obj.path, obj.outputDirname, 'ProcessingFuncCallChain.txt']);
         end
         
     end
@@ -716,6 +715,7 @@ classdef TreeNodeClass < handle
         end
         
         
+        
         % ----------------------------------------------------------------------------------
         function Calc(obj)
             
@@ -723,40 +723,41 @@ classdef TreeNodeClass < handle
             obj.procStream.input.LoadVars(obj.inputVars);
 
             % Calculate processing stream
-            fcalls = obj.procStream.Calc([obj.path, obj.GetOutputFilename()]);
+            fcalls = obj.procStream.Calc([obj.path, obj.GetOutputFilename()]); %#ok<NASGU>
             
-            % Save processing stream that generated the derived output
-            obj.SaveProcFuncCalls(fcalls);
-
         end
+        
         
 
         % ----------------------------------------------------------------------------------
-        function SaveProcFuncCalls(obj, fcalls)
-            if obj.ProcFuncCallsFile().fid < 0 
+        function SaveProcStreamInit(obj)
+            cfg = ConfigFileClass();
+            val = cfg.GetValue('Save Processing Stream');
+            if strcmpi(val, 'yes')
+                obj.procStream.SaveProcStream(true);
+            elseif strcmpi(val, 'no')
+                obj.procStream.SaveProcStream(false);
+            end
+        end
+        
+        
+        
+        % ----------------------------------------------------------------------------------
+        function SaveProcStreamClose(obj)
+            if ~obj.procStream.SaveProcStream()
+                if ispathvalid([obj.path, obj.outputDirname, 'ProcStreamSummary.txt'])
+                    try
+                        delete([obj.path, obj.outputDirname, 'ProcStreamSummary.txt'])
+                    catch
+                    end
+                end
                 return
             end
-            fprintf(obj.ProcFuncCallsFile().fid, '%s\n', char(double('-') + zeros(1,length(obj.GetName)+length('.mat'))));
-            fprintf(obj.ProcFuncCallsFile().fid, '%s.mat\n', obj.GetName);
-            fprintf(obj.ProcFuncCallsFile().fid, '%s\n', char(double('-') + zeros(1,length(obj.GetName)+length('.mat'))));
-            for ii = 1:length(fcalls)
-                fprintf(obj.ProcFuncCallsFile().fid, '%s\n', fcalls{ii});
-            end
-            fprintf(obj.ProcFuncCallsFile().fid, '\n\n');
+            fid = fopen([obj.path, obj.outputDirname, 'ProcStreamSummary.txt'], 'w');
+            fprintf(fid, 'SUMMARY :\n');
+            fclose(fid);
         end
         
-        
-        
-        % ----------------------------------------------------------------------------------
-        function OpenProcFuncCalls(obj)
-            obj.ProcFuncCallsFile('open');
-        end
-        
-        
-        % ----------------------------------------------------------------------------------
-        function CloseProcFuncCalls(obj)
-            obj.ProcFuncCallsFile('close');
-        end
         
                 
         % ----------------------------------------------------------------------------------
@@ -1228,46 +1229,6 @@ classdef TreeNodeClass < handle
                 return
             end
             tbl = distinguishable_colors(128);
-        end
-   
-        
-        % ----------------------------------------------------------------------------------
-        function out = ProcFuncCallsFile(arg)
-            persistent file;
-            if nargin == 1
-                if ischar(arg)
-                    if strcmp(arg, 'open')
-                        obj.cfg = ConfigFileClass();
-                        val = obj.cfg.GetValue('Save Processing Stream');
-                        if strcmpi(val, 'no')
-                            file.fid = -1;
-                            return
-                        end                    
-                        if file.fid > 0
-                            try
-                                fclose(file.fid);
-                            catch
-                            end
-                        end
-                        file.fid = fopen(file.name, 'w');
-                    elseif strcmp(arg, 'close')
-                        try
-                            fclose(file.fid);
-                        catch
-                        end
-                        file.fid = -1;
-                    else
-                        file = struct('fid',-1, 'name',arg);
-                    end
-                elseif arg == 0
-                    file.fid = -1;
-                elseif arg > 0 
-                    file.fid = arg;
-                end
-            elseif isempty(file)                
-                file = struct('fid',-1, 'name','');
-            end
-            out = file;
         end
    
         
