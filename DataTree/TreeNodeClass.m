@@ -51,7 +51,7 @@ classdef TreeNodeClass < handle
             obj.path = filesepStandard(pwd);            
             
             obj.outputDirname = filesepStandard(obj.cfg.GetValue('Output Folder Name'), 'nameonly:dir');
-            
+
             obj.InitParentAppFunc();
             obj.children = [];
             
@@ -72,7 +72,7 @@ classdef TreeNodeClass < handle
                 end
             end
             obj.CondColTbl('init');
-            obj.GroupDataLoadWarnings();
+            obj.GroupDataLoadWarnings();            
         end
         
     end
@@ -221,6 +221,34 @@ classdef TreeNodeClass < handle
             end
             if nargin>4
                 obj.iRun = iRun;
+            end
+        end
+        
+        
+        % ----------------------------------------------------------
+        function idx = FindProcElem(obj, name)
+            idx = [];
+            if strcmp(name, obj.GetName())
+                idx = obj.GetIndexID();
+                return;
+            end
+            if strcmp(name, obj.GetFilename())
+                idx = obj.GetIndexID();
+                return;
+            end
+            for ii = 1:length(obj.children)
+                if strcmp(name, obj.children(ii).GetName())
+                    idx = obj.children(ii).GetIndexID();
+                    return;
+                end
+                if strcmp(name, obj.children(ii).GetFilename())
+                    idx = obj.children(ii).GetIndexID();
+                    return;
+                end
+                idx = obj.children(ii).FindProcElem(name);
+                if ~isempty(idx)
+                    return;
+                end
             end
         end
         
@@ -487,6 +515,62 @@ classdef TreeNodeClass < handle
 
         
         % ----------------------------------------------------------------------------------
+        function RenameCondition(obj, oldname, newname)
+            % Function to rename a condition. Important to remeber that changing the
+            % condition involves 2 distinct well defined steps:
+            %   a) For the current element change the name of the specified (old)
+            %      condition for ONLY for ALL the acquired data elements under the
+            %      currElem, be it session, subj, or group . In this step we DO NOT TOUCH
+            %      the condition names of the session, subject or group .
+            %   b) Rebuild condition names and tables of all the tree nodes group, subjects
+            %      and sessions same as if you were loading during Homer3 startup from the
+            %      acquired data.
+            %
+            if ~exist('oldname','var') || ~ischar(oldname)
+                return;
+            end
+            if ~exist('newname','var')  || ~ischar(newname)
+                return;
+            end            
+            newname = obj.ErrCheckNewCondName(newname);
+            if obj.err ~= 0
+                return;
+            end
+            for ii = 1:length(obj.children)
+                obj.children(ii).RenameCondition(oldname, newname);
+            end
+        end
+        
+                
+        % ----------------------------------------------------------------------------------
+        function SetConditions(obj, CondNames)
+            if isempty(obj)
+                return;
+            end
+            
+            % First get global et of conditions across all runs and
+            % subjects
+            CondNames = {};
+            for ii = 1:length(obj.children)
+                obj.children(ii).SetConditions();
+                CondNames = [CondNames, obj.children(ii).GetConditions()];
+            end
+            obj.CondNames    = unique(CondNames);
+           
+           	if nargin == 1
+           		return
+           	end
+           		
+            % Now that we have all conditions, set the conditions across 
+            % the whole group to these
+            for ii = 1:length(obj.children)
+                obj.children(ii).SetConditions(obj.CondNames);
+            end            
+        end
+        
+        
+        
+        % ----------------------------------------------------------------------------------
         function idx = GetConditionIdx(obj, CondName)
             C = obj.GetConditions();
             idx = find(strcmp(C, CondName));
@@ -717,7 +801,7 @@ classdef TreeNodeClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function Calc(obj)
+        function Calc(obj)            
             
             % Make variables in this subject available to processing stream input
             obj.procStream.input.LoadVars(obj.inputVars);
@@ -730,21 +814,21 @@ classdef TreeNodeClass < handle
         
 
         % ----------------------------------------------------------------------------------
-        function SaveProcStreamInit(obj)
+        function ExportProcStreamFunctionsInit(obj)
             cfg = ConfigFileClass();
-            val = cfg.GetValue('Save Processing Stream');
+            val = cfg.GetValue('Export Processing Stream Functions');
             if strcmpi(val, 'yes')
-                obj.procStream.SaveProcStream(true);
+                obj.procStream.ExportProcStreamFunctions(true);
             elseif strcmpi(val, 'no')
-                obj.procStream.SaveProcStream(false);
+                obj.procStream.ExportProcStreamFunctions(false);
             end
         end
         
         
         
         % ----------------------------------------------------------------------------------
-        function SaveProcStreamClose(obj)
-            if ~obj.procStream.SaveProcStream()
+        function ExportProcStreamFunctionsClose(obj)
+            if ~obj.procStream.ExportProcStreamFunctions()
                 if ispathvalid([obj.path, obj.outputDirname, 'ProcStreamSummary.txt'])
                     try
                         delete([obj.path, obj.outputDirname, 'ProcStreamSummary.txt'])
@@ -766,7 +850,7 @@ classdef TreeNodeClass < handle
                 return
             end
             obj.FreeMemorySubBranch();
-            obj.procStream.FreeMemory(obj.GetOutputFilename);            
+            obj.procStream.FreeMemory(obj.GetOutputFilename);
         end
         
 

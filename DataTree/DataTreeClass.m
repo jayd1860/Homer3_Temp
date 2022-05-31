@@ -466,6 +466,26 @@ classdef DataTreeClass <  handle
 
         
         % ----------------------------------------------------------
+        function idx = FindProcElem(obj, name)
+            idx = [];
+            for ii = 1:length(obj.groups)
+                if strcmp(name, obj.groups(ii).GetName())
+                    idx = obj.groups(ii).GetIndexID();
+                    break;
+                end
+                if strcmp(name, obj.groups(ii).GetFilename())
+                    idx = obj.groups(ii).GetIndexID();
+                    break;
+                end
+                idx = obj.groups(ii).FindProcElem(name);
+                if ~isempty(idx)
+                    break;
+                end
+            end
+        end
+        
+        
+        % ----------------------------------------------------------
         function ErrorCheckLoadedFiles(obj)
             if isempty(obj.filesErr)
                 return
@@ -628,12 +648,12 @@ classdef DataTreeClass <  handle
             obj.logger.Write('Completed saving processing results for all groups in %0.3f seconds.\n', toc(t1));
         end
 
-        
+
         % ----------------------------------------------------------
         function CalcCurrElem(obj)
-            obj.currElem.SaveProcStreamInit();
-            obj.currElem.Calc();            
-            obj.currElem.SaveProcStreamClose();
+            obj.currElem.ExportProcStreamFunctionsInit();
+            obj.currElem.Calc();
+            obj.currElem.ExportProcStreamFunctionsClose();
         end
 
         
