@@ -260,7 +260,7 @@ classdef SessClass < TreeNodeClass
         
         % ----------------------------------------------------------------------------------
         function LoadInputVars(obj, tHRF_common)
-            
+			obj.inputVars.nTrialsRuns = [];
             for iRun = 1:length(obj.runs)
                 % Set common tHRF: make sure size of tHRF, dcAvg and dcAvg is same for
                 % all runs. Use smallest tHRF as the common one.
@@ -332,6 +332,10 @@ classdef SessClass < TreeNodeClass
                 tHRF_common = obj.runs(iRun).procStream.output.GeneratetHRFCommon(tHRF_common);
             end
             
+            % Update call application GUI using it's generic Update function 
+            if ~isempty(obj.updateParentGui)
+                obj.updateParentGui('DataTreeClass', [obj.iGroup, obj.iSubj, obj.iSess, obj.iRun]);
+            end
             
             % Load all the variables that might be needed by procStream.Calc() to calculate proc stream for this session
             obj.LoadInputVars(tHRF_common);
@@ -342,12 +346,7 @@ classdef SessClass < TreeNodeClass
                 fprintf('Completed processing stream for group %d, session %d\n', obj.iGroup, obj.iSubj);
                 fprintf('\n');
             end
-            
-            % Update call application GUI using it's generic Update function 
-            if ~isempty(obj.updateParentGui)
-                obj.updateParentGui('DataTreeClass', [obj.iGroup, obj.iSubj, obj.iSess, obj.iRun]);
-            end
-            
+                        
         end
                
         
@@ -500,15 +499,6 @@ classdef SessClass < TreeNodeClass
         
         
         % ----------------------------------------------------------------------------------
-        function ch = GetMeasList(obj, iBlk)
-            if ~exist('iBlk','var') || isempty(iBlk)
-                iBlk=1;
-            end
-            ch = obj.runs(1).GetMeasList(iBlk);
-        end
-                
-        
-        % ----------------------------------------------------------------------------------
         function wls = GetWls(obj)
             wls = obj.runs(1).GetWls();
         end
@@ -528,6 +518,23 @@ classdef SessClass < TreeNodeClass
             n = obj.runs(1).GetDataBlocksNum();
         end
        
+        
+        % ----------------------------------------------------------------------------------
+        function SetConditions(obj, CondNames)
+            if nargin==1
+                CondNames = {};
+                for ii = 1:length(obj.runs)
+                    obj.runs(ii).SetConditions();
+                    CondNames = [CondNames, obj.runs(ii).GetConditions()];
+                end
+            elseif nargin==2
+                for ii = 1:length(obj.runs)
+                    obj.runs(ii).SetConditions(CondNames);
+                end                
+            end
+            obj.CondNames = unique(CondNames);
+        end
+        
         
         % ----------------------------------------------------------------------------------
         function CondNames = GetConditionsActive(obj)

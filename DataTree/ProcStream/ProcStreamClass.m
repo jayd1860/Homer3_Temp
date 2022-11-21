@@ -25,16 +25,12 @@ classdef ProcStreamClass < handle
             obj.config = struct('procStreamCfgFile','', 'defaultProcStream','','suffix','');
             obj.config.procStreamCfgFile    = cfg.GetValue('Processing Stream Config File');
             obj.config.regressionTestActive = cfg.GetValue('Regression Test Active');
-            copyOptions = '';
-            if strcmpi(obj.getDefaultProcStream(), '_nirs')
-                copyOptions = 'extended';
-            end
             
             % By the time this class constructor is called we should already have a saved registry 
             % to load. (Defintiely would not want to be generating the registry for each instance of this class!!)
             obj.reg = RegistriesClass();
             
-            obj.input = ProcInputClass(acquired, copyOptions);
+            obj.input = ProcInputClass(acquired);
             obj.output = ProcResultClass();
             
             if nargin==0
@@ -122,10 +118,19 @@ classdef ProcStreamClass < handle
 
         % ----------------------------------------------------------------------------------
         function B = isequal(obj, obj2)
-            B = 0;
-            if isa(obj2, 'ProcStream')
-                for ii=1:length(obj.fcalls)
+            B = false;
+            if isa(obj2, 'ProcStreamClass')
+                % Compare in both direction obj -> obj2  AND  obj2 -> obj
+                for ii = 1:length(obj.fcalls)
                     if ii>length(obj2.fcalls)
+                        return
+                    end
+                    if obj.fcalls(ii) ~= obj2.fcalls(ii)
+                        return;
+                    end
+                end
+                for ii = 1:length(obj2.fcalls)
+                    if ii>length(obj.fcalls)
                         return
                     end
                     if obj.fcalls(ii) ~= obj2.fcalls(ii)
@@ -157,7 +162,9 @@ classdef ProcStreamClass < handle
                 if length(obj.fcalls) ~= length(obj2.procFunc.funcName)
                     return;
                 end
-                for ii=1:length(obj.fcalls)
+                
+                % Compare in both direction obj -> obj2  AND  obj2 -> obj
+                for ii = 1:length(obj.fcalls)
                     obj3.funcName        = obj2.procFunc.funcName{ii};
                     obj3.funcNameUI      = obj2.procFunc.funcNameUI{ii};
                     obj3.funcArgOut      = obj2.procFunc.funcArgOut{ii};
@@ -171,8 +178,10 @@ classdef ProcStreamClass < handle
                         return;
                     end
                 end
+            else
+                return
             end
-            B = 1;
+            B = true;
         end
 
         
@@ -190,9 +199,6 @@ classdef ProcStreamClass < handle
         % ----------------------------------------------------------------------------------
         function FreeMemory(obj, filename)
             if ~exist('filename','var')
-                return
-            end
-            if ~ispathvalid(filename, 'file')
                 return
             end
             obj.output.FreeMemory(filename)
@@ -270,7 +276,9 @@ classdef ProcStreamClass < handle
         
         
         % ----------------------------------------------------------------------------------
-        function fcalls = Calc(obj, filename)            
+        function fcalls = Calc(obj, filename)
+            global logger
+            
             if ~exist('filename','var')
                 filename = '';
             end
@@ -283,7 +291,7 @@ classdef ProcStreamClass < handle
             hwait = waitbar(0, 'Processing...' );
                 
             paramOut = {};
-        	for iFcall = FcallsIdxs
+            for iFcall = FcallsIdxs
                 waitbar( iFcall/nFcall, hwait, sprintf('Processing... %s', obj.GetFcallNamePrettyPrint(iFcall)) );
                 
                 % Instantiate all input variables required by function call
@@ -294,17 +302,17 @@ classdef ProcStreamClass < handle
                     end
                 end
                 
-            fcalls{iFcall} = obj.GenerateFuncCallString(iFcall);
+                fcalls{iFcall} = obj.GenerateFuncCallString(iFcall);
                 
                 try
-                eval( fcalls{iFcall} );
+                    eval( fcalls{iFcall} );
                 catch ME
                     msg = sprintf('Function %s generated error at line %d: %s', obj.fcalls(iFcall).name, ME.stack(1).line, ME.message);
                     if strcmp(obj.config.regressionTestActive, 'false')
                         MessageBox(msg);
-                    elseif strcmp(obj.config.regressionTestActive, 'false')
-                        fprintf('%s\n', msg);
                     end
+                    logger.Write('%s\n', msg);
+                    printStack(ME);
                     close(hwait);
                     rethrow(ME)
                 end
@@ -313,7 +321,7 @@ classdef ProcStreamClass < handle
                 
                 % remove '[', ']', and ','
                 foos = obj.fcalls(iFcall).argOut.str;
-                for ii=1:length(foos)
+                for ii = 1:length(foos)
                     if foos(ii)=='[' || foos(ii)==']' || foos(ii)==',' || foos(ii)=='#'
                         foos(ii) = ' ';
                     end
@@ -322,7 +330,7 @@ classdef ProcStreamClass < handle
                 % get parameters for Output to obj.output
                 lst = strfind(foos,' ');
                 lst = [0, lst, length(foos)+1]; %#ok<*AGROW>
-                for ii=1:length(lst)-1
+                for ii = 1:length(lst)-1
                     foo2 = foos(lst(ii)+1:lst(ii+1)-1);
                     lst2 = strmatch( foo2, paramOut, 'exact' ); %#ok<MATCH3>
                     idx = strfind(foo2,'foo');
@@ -333,7 +341,7 @@ classdef ProcStreamClass < handle
             end
             
             % Copy paramOut to output
-            for ii=1:length(paramOut)
+            for ii = 1:length(paramOut)
                 eval( sprintf('paramsOutStruct.%s = %s;', paramOut{ii}, paramOut{ii}) );
             end
             
@@ -356,6 +364,27 @@ classdef ProcStreamClass < handle
         
         
         % ----------------------------------------------------------------------------------        
+        function mlActMan = CompressMlActMan(obj)
+            mlActMan = [];
+            if isempty(obj.input.mlActMan)
+                return
+            end
+            mlActMan = compressLogicalArray(obj.input.mlActMan{1});
+        end
+        
+        
+        % ----------------------------------------------------------------------------------        
+        function tIncMan = CompresstIncMan(obj)
+            tIncMan = [];
+            if isempty(obj.input.tIncMan)
+                return
+            end
+            tIncMan = compressLogicalArray(obj.input.tIncMan{1});
+        end
+                
+                
+                
+        % ----------------------------------------------------------------------------------        
         function ExportProcStream(obj, filename, fcalls)
             global logger             
             temp = obj.output.SetFilename(filename);
@@ -363,13 +392,17 @@ classdef ProcStreamClass < handle
                 return;
             end
             [p,f] = fileparts(temp); 
-            fname = [filesepStandard(p), f, '_ProcStream.txt'];
+            fname = [filesepStandard(p), f, '_processing.json'];
             if obj.ExportProcStreamFunctions()==true
-                fid = fopen(fname, 'w');                
                 logger.Write('Saving processing stream  %s:\n', fname);
-                for ii = 1:length(fcalls)
-                    fprintf(fid, '%s\n', fcalls{ii});
-                end
+                appname = sprintf('%s, (v%s)', getNamespace(), getVernum(getNamespace()));
+                dt      = sprintf('%s', char(datetime(datetime, 'Format','MMMM d, yyyy,   HH:mm:ss')));
+                mlActManCompressed = obj.CompressMlActMan();
+                tIncManCompressed = obj.CompresstIncMan();
+                jsonstruct = struct('ApplicationName',appname, 'DateTime',dt, 'tIncMan',tIncManCompressed, 'mlActMan',mlActManCompressed, 'FunctionsCalls',{fcalls});
+                jsonStr = savejson('Processing', jsonstruct);
+                fid = fopen(fname, 'w');
+                fwrite(fid, jsonStr, 'uint8');
                 fclose(fid);
             else
                 if ispathvalid(fname)
@@ -468,6 +501,7 @@ classdef ProcStreamClass < handle
             end
             args = unique([args{:}], 'stable');
         end
+        
         
         
         % ----------------------------------------------------------------------------------
@@ -671,7 +705,7 @@ classdef ProcStreamClass < handle
                 fprintf('Default config file exists. Processing stream will be loaded from %s\n', fname);
                 return;
             end
-            fname = OpenFileGUI(procStreamCfgFile, pathname,'Load Processing Options File');
+            fname = OpenFileGUI(procStreamCfgFile, pathname,'Load Processing Options File','.cfg');
             if isempty(fname)
                 fname = [pathname, procStreamCfgFile];
                 fprintf('Loading default config file.\n');
@@ -1401,6 +1435,97 @@ classdef ProcStreamClass < handle
         end
         
         
+        % ---------------------------------------------------------
+        function ml = GetMeasurementList(obj, matrixMode, iBlks, dataType)
+            ml = [];
+            if ~exist('matrixMode','var')
+                matrixMode = '';
+            end
+            if ~exist('iBlks','var') || isempty(iBlks)
+                iBlks = 1;
+            end
+            if ~exist('dataType','var')
+                dataType = 'conc';
+            end
+            for iBlk = 1:length(iBlks)
+                switch(lower(dataType))
+                    case 'od'
+                        if iBlk <= length(obj.output.dod)
+                            ml = [ml; obj.output.dod(iBlk).GetMeasurementList(matrixMode)];
+                        end
+                        break;
+                    case {'conc','hb','hbo','hbr','hbt'}
+                        if iBlk <= length(obj.output.dc)
+                            ml = [ml; obj.output.dc(iBlk).GetMeasurementList(matrixMode)];
+                        end
+                        break;
+                    case {'od hrf','od_hrf'}
+                        if iBlk <= length(obj.output.dodAvg)
+                            ml = [ml; obj.output.dodAvg(iBlk).GetMeasurementList(matrixMode)];
+                        end
+                        break;
+                    case {'hb hrf','conc hrf','hb_hrf','conc_hrf'}
+                        if iBlk <= length(obj.output.dcAvg)
+                            ml = [ml; obj.output.dcAvg(iBlk).GetMeasurementList(matrixMode)];
+                        end
+                        break;
+                end
+            end
+        end        
+                
+        
+        % ---------------------------------------------------------
+        function t = GetTHRF(obj, iBlk)
+            t = [];
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
+            end
+            t = obj.output.tHRF;
+        end
+        
+        
+        
+        % ---------------------------------------------------------
+        function dataTimeSeries = GetDataTimeSeries(obj, options, iBlk)
+            dataTimeSeries = [];
+            if ~exist('options','var')
+                options = 'conc';
+            end
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
+            end
+            for ii = 1:length(iBlk)
+                switch(lower(options))
+                    case 'od'
+                        if ii <= length(obj.output.dod)
+                            dataTimeSeries = [dataTimeSeries, obj.output.dod(ii).dataTimeSeries];
+                        end
+                    case {'conc','hb','hbo','hbr','hbt'}
+                        if ii <= length(obj.output.dc)
+                            dataTimeSeries = [dataTimeSeries; obj.output.dc(ii).dataTimeSeries];
+                        end
+                    case {'od hrf','od_hrf'}
+                        if ii <= length(obj.output.dodAvg)
+                            dataTimeSeries = [dataTimeSeries; obj.output.dodAvg(ii).dataTimeSeries];
+                        end
+                    case {'hb hrf','conc hrf','hb_hrf','conc_hrf'}
+                        if ii <= length(obj.output.dcAvg)
+                            dataTimeSeries = [dataTimeSeries; obj.output.dcAvg(ii).dataTimeSeries];
+                        end
+                    case {'od hrf std','od_hrf_std'}
+                        if ii <= length(obj.output.dodAvg)
+                            dataTimeSeries = [dataTimeSeries; obj.output.dodAvgStd(ii).dataTimeSeries];
+                        end
+                    case {'hb hrf std','conc hrf std','hb_hrf_std','conc_hrf_std'}
+                        if ii <= length(obj.output.dcAvg)
+                            dataTimeSeries = [dataTimeSeries; obj.output.dcAvgStd(ii).dataTimeSeries];
+                        end
+                end
+            end
+        end
+        
+                
+        
         % ----------------------------------------------------------------------------------
         function SetTincMan(obj, val, iBlk)
             if ~exist('iBlk','var')
@@ -1452,15 +1577,6 @@ classdef ProcStreamClass < handle
                 iBlk = [];
             end
             mlActAuto = obj.output.GetVar('mlActAuto',iBlk);
-        end
-
-        
-        % ----------------------------------------------------------------------------------
-        function mlVis = GetMeasListVis(obj, iBlk)
-            if ~exist('iBlk','var')
-                iBlk = [];
-            end
-            mlVis = obj.input.GetVar('mlVis',iBlk);
         end
 
         
@@ -1739,6 +1855,12 @@ classdef ProcStreamClass < handle
                 iBlk = 1;
             end
             obj.output.ExportHRF(filename, CondNames, iBlk);
+        end
+        
+        
+        % ----------------------------------------------------------------------------------
+        function filename = ExportHRF_GetFilename(obj, filename)
+            filename = obj.output.ExportHRF_GetFilename(filename);
         end
         
         
