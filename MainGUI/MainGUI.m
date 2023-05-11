@@ -179,6 +179,7 @@ set(handles.menuItemResetGroupFolder, 'enable', val)
 function eventdata = MainGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 global maingui
 global logger
+global cfg
 
 setNamespace('Homer3');
 
@@ -240,6 +241,7 @@ maingui.childguis(2) = ChildGuiClass('ProcStreamOptionsGUI');
 maingui.childguis(3) = ChildGuiClass('StimEditGUI');
 maingui.childguis(4) = ChildGuiClass('PlotProbeGUI');
 maingui.childguis(5) = ChildGuiClass('PvaluesDisplayGUI');
+maingui.childguis(6) = ChildGuiClass('configSettingsGUI');
 
 % Load date files into group tree object
 maingui.dataTree = LoadDataTree(maingui.groupDirs, maingui.format, procStreamFile);
@@ -275,7 +277,13 @@ set(hObject,'name', title);
 maingui.logger.InitChapters()
 maingui.logger.CurrTime(sprintf('MainGUI: Startup time - %0.1f seconds\n', toc(startuptimer)));
 
-
+if strcmpi(cfg.GetValue('Load Stim From TSV File'), 'yes')
+    set(handles.menuItemStimEditGUI, 'visible','off')
+    set(handles.menuItemReloadStim, 'visible','on')
+else
+    set(handles.menuItemStimEditGUI, 'visible','on')
+    set(handles.menuItemReloadStim, 'visible','off')
+end
 
 
 
@@ -328,9 +336,12 @@ deleteNamespace('Homer3');
 
 
 
+
 % --------------------------------------------------------------------
 function [eventdata, handles] = MainGUI_CloseFcn(~, eventdata, handles)
 deleteNamespace('Homer3');
+
+
 
 
 % --------------------------------------------------------------------
@@ -343,6 +354,7 @@ if ~isempty(warnings)
     MessageBox(warnings, 'WARNINGS')
     %set(handles.listboxGroupTree, 'foregroundcolor',maingui.errcolor)
 end
+
 
 
 
@@ -535,6 +547,7 @@ elseif ~isempty(eventdata)
         return;
     end
     set(hObject,'value', iList);
+    drawnow
     
 end
 
@@ -586,7 +599,7 @@ end
 % Restore original selection listboxGroupTree
 set(handles.listboxGroupTree, 'value',val0);
 
-h = waitbar(0,'Auto-saving processing results. Please wait ...');
+h = waitbar_improved(0,'Auto-saving processing results. Please wait ...');
 maingui.dataTree.Save(h);
 close(h);
 Display(handles, hObject);
@@ -746,11 +759,15 @@ Display(handles, hObject);
 % --------------------------------------------------------------------
 function [eventdata, handles] = menuItemChangeGroup_Callback(hObject, eventdata, handles)
 global maingui
+global cfg
 if ~ishandles(hObject)
     return;
 end
 fmt = maingui.format;
 unitTest = maingui.unitTest;
+
+% Update config settings
+cfg = ConfigFileClass();
 
 % Change directory
 pathnm = uigetdir( cd, 'Pick the new directory' );
@@ -843,29 +860,46 @@ global maingui
 LaunchChildGuiFromMenu('PlotProbeGUI', hObject, GetDatatype(handles), maingui.condition);
 
 % --------------------------------------------------------------------
-% function menuItemPlotProbe2_Callback(hObject, ~, handles)
-% global maingui
-
-%%%% It will be in the next release
-% procElem = maingui.dataTree.currElem;
-% % Derived data that we want to save in a Snirf file.
-% % To save in a snirf file we need to create a SnirfClass
-% % object. A SnirfClass object is DataTree's implementation 
-% % of the Snirf format.  
-% data(1) = procElem.procStream.output.dcAvg; 
+function menuItemPlotProbe2_Callback(hObject, ~, handles)
+global maingui
+procElem = maingui.dataTree.currElem;
+% Derived data that we want to save in a Snirf file.
+% To save in a snirf file we need to create a SnirfClass
+% object. A SnirfClass object is DataTree's implementation 
+% of the Snirf format.  
+data(1) = procElem.procStream.output.dcAvg; 
 % data(2) = procElem.procStream.output.dod;
-% 
-% % To complete SnirfClass object arguments we need to supply these
-% % which we get from acquired data of the first run associated with 
-% % our procElem.
-% probe = procElem.acquired.probe;
-% stim = procElem.acquired.stim;
-% metaDataTags = procElem.acquired.metaDataTags;
-% 
-% obj = SnirfClass(data, stim, probe, metaDataTags);
-% 
-% % call PlotProbe2 GUI
-% PlotProbe2(obj);
+
+% To complete SnirfClass object arguments we need to supply these
+% which we get from acquired data of the first run associated with 
+% our procElem.
+if strcmp(procElem.type,'sess')
+    maingui.dataTree.SetCurrElem(procElem.iGroup, procElem.iSubj, procElem.iSess, 1);
+    maingui.dataTree.LoadCurrElem()
+    procElem = maingui.dataTree.currElem;
+    maingui.dataTree.SetCurrElem(procElem.iGroup, procElem.iSubj, procElem.iSess);
+    maingui.dataTree.LoadCurrElem()
+elseif strcmp(procElem.type,'subj')
+    maingui.dataTree.SetCurrElem(procElem.iGroup, procElem.iSubj, 1, 1);
+    maingui.dataTree.LoadCurrElem()
+    procElem = maingui.dataTree.currElem;
+     maingui.dataTree.SetCurrElem(procElem.iGroup, procElem.iSubj);
+    maingui.dataTree.LoadCurrElem()
+elseif strcmp(procElem.type,'group')
+    maingui.dataTree.SetCurrElem(procElem.iGroup, 1, 1, 1);
+    maingui.dataTree.LoadCurrElem()
+    procElem = maingui.dataTree.currElem;
+    maingui.dataTree.SetCurrElem(procElem.iGroup);
+    maingui.dataTree.LoadCurrElem()
+end
+probe = procElem.acquired.probe;
+stim = procElem.acquired.stim;
+metaDataTags = procElem.acquired.metaDataTags;
+
+obj = SnirfClass(data, stim, probe, metaDataTags);
+
+% call PlotProbe2 GUI
+PlotProbe2(obj);
 
 
 
@@ -917,7 +951,6 @@ global maingui
 if ~ishandles(hObject)
     return;
 end
-
 if get(hObject, 'value')
     maingui.applyEditCurrNodeOnly = false;
 else
@@ -926,10 +959,10 @@ end
 UpdateArgsChildGuis(handles);
 
 
+
 % --------------------------------------------------------------------
 function idx = FindChildGuiIdx(name)
 global maingui
-
 for ii = 1:length(maingui.childguis)
     if strcmp(maingui.childguis(ii).GetName, name)
         break;
@@ -938,13 +971,13 @@ end
 idx = ii;
 
 
+
 % --------------------------------------------------------------------
 function UpdateArgsChildGuis(handles)
 global maingui
 if isempty(maingui.childguis)
     return;
 end
-
 maingui.childguis(FindChildGuiIdx('PlotProbeGUI')).UpdateArgs(GetDatatype(handles), GetCondition(handles));
 maingui.childguis(FindChildGuiIdx('ProcStreamOptionsGUI')).UpdateArgs(maingui.dataTree.dirnameGroups, ...
                                                                       maingui.applyEditCurrNodeOnly);
@@ -1148,12 +1181,14 @@ procElem = dataTree.currElem;
 if ~strcmp(procElem.type, 'run')
     return;
 end
+if ~exist('hAxes','var')
+    hAxes = handles.axesData;
+end
 if ~ishandles(hAxes)
     return;
 end
 axes(hAxes);
 hold(hAxes,'on');
-
 datatype = GetDatatype(handles);
 if datatype == maingui.buttonVals.RAW_HRF
     return;
@@ -2050,8 +2085,20 @@ maingui.axesSDG.ylim = bbox(3:4);
 
 
 % --------------------------------------------------------------------
-function menuItemAppConfigGUI_Callback(~, ~, ~)
-configSettingsGUI();
+function menuItemAppConfigGUI_Callback(~, ~, handles)
+global maingui
+global cfg
+idx = FindChildGuiIdx('configSettingsGUI');
+maingui.childguis(idx).LaunchWaitForExit();
+cfg.Update();
+if strcmpi(cfg.GetValue('Load Stim From TSV File'), 'yes')
+    set(handles.menuItemStimEditGUI, 'visible','off')
+    set(handles.menuItemReloadStim, 'visible','on')
+else
+    set(handles.menuItemStimEditGUI, 'visible','on')
+    set(handles.menuItemReloadStim, 'visible','off')
+end
+
 
 
 
@@ -2149,3 +2196,25 @@ else
     set(hObject, 'string','/\');
     set(handles.listboxGroupTree, 'position', [pos1(1), pos1(2)-x, pos1(3), pos1(4)+x]);
 end
+
+
+
+% ----------------------------------------------------------
+function menuItemExportStim_Callback(~, ~, ~)
+global maingui
+out = ExportDataGUI(maingui.dataTree.currElem.name,'.tsv','Stim', 'userargs');
+if isempty(out.format) && isempty(out.datatype)
+    return;
+end
+maingui.dataTree.currElem.ExportStim();
+
+
+
+
+% --------------------------------------------------------------------
+function menuItemReloadStim_Callback(~, ~, ~)
+global maingui
+maingui.dataTree.currElem.EditStim();
+
+
+

@@ -9,6 +9,10 @@ classdef ProcStreamClass < handle
         config;
     end
     
+    properties (Access = private)
+        datatypes;
+    end
+    
     methods
         
         % ----------------------------------------------------------------------------------
@@ -26,6 +30,8 @@ classdef ProcStreamClass < handle
             obj.config.procStreamCfgFile    = cfg.GetValue('Processing Stream Config File');
             obj.config.regressionTestActive = cfg.GetValue('Regression Test Active');
             
+            obj.InitDataTypes();
+            
             % By the time this class constructor is called we should already have a saved registry 
             % to load. (Defintiely would not want to be generating the registry for each instance of this class!!)
             obj.reg = RegistriesClass();
@@ -37,8 +43,8 @@ classdef ProcStreamClass < handle
                 return;
             end
             obj.CreateDefault();
-            obj.ExportProcStreamFunctions(false);
         end
+        
         
         
         % ----------------------------------------------------------------------------------
@@ -93,9 +99,12 @@ classdef ProcStreamClass < handle
         
         % --------------------------------------------------------------
         function CopyStims(obj, obj2)
-            obj.input.CopyStims(obj2.input);
+            if isa(obj2, 'ProcStreamClass')
+                obj.input.CopyStims(obj2.input);
+            else
+                obj.input.CopyStims(obj2);
+            end
         end
-        
         
         
         % ----------------------------------------------------------------------------------
@@ -288,11 +297,11 @@ classdef ProcStreamClass < handle
             nFcall = length(FcallsIdxs);
             
             paramsOutStruct = struct();
-            hwait = waitbar(0, 'Processing...' );
+            hwait = waitbar_improved(0, 'Processing...' );
                 
             paramOut = {};
             for iFcall = FcallsIdxs
-                waitbar( iFcall/nFcall, hwait, sprintf('Processing... %s', obj.GetFcallNamePrettyPrint(iFcall)) );
+                waitbar_improved( iFcall/nFcall, hwait, sprintf('Processing... %s', obj.fcalls(iFcall).GetName()) );
                 
                 % Instantiate all input variables required by function call
                 argIn = obj.GetInputArgs(iFcall);
@@ -313,7 +322,7 @@ classdef ProcStreamClass < handle
                     end
                     logger.Write('%s\n', msg);
                     printStack(ME);
-                    close(hwait);
+                    waitbar_improved(hwait, 'close');
                     rethrow(ME)
                 end
                 
@@ -351,7 +360,7 @@ classdef ProcStreamClass < handle
             obj.ExportProcStream(filename, fcalls);
             
             obj.input.misc = [];
-            close(hwait);
+            waitbar_improved(hwait, 'close');
             
         end
         
@@ -366,10 +375,16 @@ classdef ProcStreamClass < handle
         % ----------------------------------------------------------------------------------        
         function mlActMan = CompressMlActMan(obj)
             mlActMan = [];
-            if isempty(obj.input.mlActMan)
+
+            % We don't need to compress mlAct man because it is usually not that big 
+            % But even did then we have to modify compressLogicalArray to handle 2d arrays 
+            % instead of just vectors.
+            % mlActMan = compressLogicalArray(obj.input.mlActMan{1});
+            temp = obj.GetVar('mlActMan');
+            if isempty(temp)
                 return
             end
-            mlActMan = compressLogicalArray(obj.input.mlActMan{1});
+            mlActMan = temp{1};
         end
         
         
@@ -386,20 +401,24 @@ classdef ProcStreamClass < handle
                 
         % ----------------------------------------------------------------------------------        
         function ExportProcStream(obj, filename, fcalls)
-            global logger             
+            global logger
+            global cfg
             temp = obj.output.SetFilename(filename);
             if isempty(temp)
                 return;
             end
             [p,f] = fileparts(temp); 
             fname = [filesepStandard(p), f, '_processing.json'];
-            if obj.ExportProcStreamFunctions()==true
+            if strcmpi(cfg.GetValue('Export Processing Stream Functions'), 'yes')
                 logger.Write('Saving processing stream  %s:\n', fname);
-                appname = sprintf('%s, (v%s)', getNamespace(), getVernum(getNamespace()));
+                appname = sprintf('%s', getNamespace());
+                vernum  = sprintf('v%s', getVernum(appname));
                 dt      = sprintf('%s', char(datetime(datetime, 'Format','MMMM d, yyyy,   HH:mm:ss')));
                 mlActManCompressed = obj.CompressMlActMan();
                 tIncManCompressed = obj.CompresstIncMan();
-                jsonstruct = struct('ApplicationName',appname, 'DateTime',dt, 'tIncMan',tIncManCompressed, 'mlActMan',mlActManCompressed, 'FunctionsCalls',{fcalls});
+                jsonstruct = struct('ProcessingElement',f, 'ApplicationName',appname, 'Version',vernum, ...
+                                    'Dependencies',obj.ExportProcStreamDependencies(), 'DateTime',dt, 'tIncMan',tIncManCompressed, ...
+                                    'mlActMan',mlActManCompressed, 'FunctionCalls',{fcalls});
                 jsonStr = savejson('Processing', jsonstruct);
                 fid = fopen(fname, 'w');
                 fwrite(fid, jsonStr, 'uint8');
@@ -413,10 +432,23 @@ classdef ProcStreamClass < handle
                     end
                 end
             end
-        end        
+        end
         
         
-        % ----------------------------------------------------------------------------------        
+        
+        
+        % ----------------------------------------------------------------------------------
+        function depStruct = ExportProcStreamDependencies(obj)
+            depStruct = struct();
+            [d, v] = dependencies();
+            for ii = 1:length(d)
+                eval( sprintf('depStruct.%s = ''v%s'';', d{ii}, v{ii}) );
+            end
+        end
+
+        
+        
+        % ----------------------------------------------------------------------------------
         function nbytes = MemoryRequired(obj)
             nbytes(1) = obj.input.MemoryRequired();
             nbytes(2) = obj.output.MemoryRequired();
@@ -1435,45 +1467,54 @@ classdef ProcStreamClass < handle
         end
         
         
+        
         % ---------------------------------------------------------
-        function ml = GetMeasurementList(obj, matrixMode, iBlks, dataType)
+        function ml = GetMeasurementList(obj, matrixMode, iBlk, dataType)
+            %  
+            %  Syntax: 
+            %     ml = GetMeasurementList(obj, matrixMode, iBlks, dataType)
+            %
+            %  Description:
+            %     To specify the type of data associated with the measurement list use the last argument,
+            %     dataType:
+            %
+            %        Optical Density     :  'od'
+            %        Concentration       :  'conc' | 'hb' | 'hbo' | 'hbr' | 'hbt'
+            %        HRF Optical Density :  'od hrf' | 'od_hrf' | 'hrf od' | 'hrf_od'
+            %        HRF Concentration   :  'hb hrf' | 'conc hrf' | 'hb_hrf' | 'conc_hrf' | 'hrf hb' | 'hrf conc' | 'hrf_hb' | 'hrf_conc'
+            %
             ml = [];
             if ~exist('matrixMode','var')
                 matrixMode = '';
             end
-            if ~exist('iBlks','var') || isempty(iBlks)
-                iBlks = 1;
+            if ~exist('iBlk','var') || isempty(iBlk)
+                iBlk = 1;
             end
             if ~exist('dataType','var')
-                dataType = 'conc';
+                dataType = obj.datatypes.CONCENTRATION{1};
             end
-            for iBlk = 1:length(iBlks)
-                switch(lower(dataType))
-                    case 'od'
-                        if iBlk <= length(obj.output.dod)
-                            ml = [ml; obj.output.dod(iBlk).GetMeasurementList(matrixMode)];
-                        end
-                        break;
-                    case {'conc','hb','hbo','hbr','hbt'}
-                        if iBlk <= length(obj.output.dc)
-                            ml = [ml; obj.output.dc(iBlk).GetMeasurementList(matrixMode)];
-                        end
-                        break;
-                    case {'od hrf','od_hrf'}
-                        if iBlk <= length(obj.output.dodAvg)
-                            ml = [ml; obj.output.dodAvg(iBlk).GetMeasurementList(matrixMode)];
-                        end
-                        break;
-                    case {'hb hrf','conc hrf','hb_hrf','conc_hrf'}
-                        if iBlk <= length(obj.output.dcAvg)
-                            ml = [ml; obj.output.dcAvg(iBlk).GetMeasurementList(matrixMode)];
-                        end
-                        break;
-                end
+            switch(lower(dataType))
+                case obj.datatypes.OPTICAL_DENSITY
+                    if iBlk <= length(obj.output.dod)
+                        ml = obj.output.dod(iBlk).GetMeasurementList(matrixMode);
+                    end
+                case obj.datatypes.CONCENTRATION
+                    if iBlk <= length(obj.output.dc)
+                        ml = obj.output.dc(iBlk).GetMeasurementList(matrixMode);
+                    end
+                case [obj.datatypes.HRF_OPTICAL_DENSITY, obj.datatypes.HRF_OPTICAL_DENSITY_STD]
+                    if iBlk <= length(obj.output.dodAvg)
+                        ml = obj.output.dodAvg(iBlk).GetMeasurementList(matrixMode);
+                    end
+                case [obj.datatypes.HRF_CONCENTRATION, obj.datatypes.HRF_CONCENTRATION_STD]
+                    if iBlk <= length(obj.output.dcAvg)
+                        ml = obj.output.dcAvg(iBlk).GetMeasurementList(matrixMode);
+                    end
             end
         end        
-                
-        
+
+
+
         % ---------------------------------------------------------
         function t = GetTHRF(obj, iBlk)
             t = [];
@@ -1486,45 +1527,69 @@ classdef ProcStreamClass < handle
         
         
         % ---------------------------------------------------------
-        function dataTimeSeries = GetDataTimeSeries(obj, options, iBlk)
+        function [dataTimeSeries, time, measurementList] = GetDataTimeSeries(obj, options, iBlk)
+            %  
+            %  Syntax: 
+            %     dataTimeSeries = GetDataTimeSeries(obj, options, iBlk)
+            %
+            %  Description:
+            %     To specify the type of data use the argument options:
+            %
+            %        Optical Density     :  'od'
+            %        Concentration       :  'conc' | 'hb' | 'hbo' | 'hbr' | 'hbt'
+            %        HRF Optical Density :  'od hrf' | 'od_hrf'
+            %        HRF Concentration   :  'hb hrf' | 'conc hrf' | 'hb_hrf' | 'conc_hrf'
+            %
             dataTimeSeries = [];
+            time = [];
+            measurementList = [];
             if ~exist('options','var')
-                options = 'conc';
+                options = obj.datatypes.CONCENTRATION{1};
             end
             if ~exist('iBlk','var') || isempty(iBlk)
                 iBlk = 1;
             end
-            for ii = 1:length(iBlk)
-                switch(lower(options))
-                    case 'od'
-                        if ii <= length(obj.output.dod)
-                            dataTimeSeries = [dataTimeSeries, obj.output.dod(ii).dataTimeSeries];
-                        end
-                    case {'conc','hb','hbo','hbr','hbt'}
-                        if ii <= length(obj.output.dc)
-                            dataTimeSeries = [dataTimeSeries; obj.output.dc(ii).dataTimeSeries];
-                        end
-                    case {'od hrf','od_hrf'}
-                        if ii <= length(obj.output.dodAvg)
-                            dataTimeSeries = [dataTimeSeries; obj.output.dodAvg(ii).dataTimeSeries];
-                        end
-                    case {'hb hrf','conc hrf','hb_hrf','conc_hrf'}
-                        if ii <= length(obj.output.dcAvg)
-                            dataTimeSeries = [dataTimeSeries; obj.output.dcAvg(ii).dataTimeSeries];
-                        end
-                    case {'od hrf std','od_hrf_std'}
-                        if ii <= length(obj.output.dodAvg)
-                            dataTimeSeries = [dataTimeSeries; obj.output.dodAvgStd(ii).dataTimeSeries];
-                        end
-                    case {'hb hrf std','conc hrf std','hb_hrf_std','conc_hrf_std'}
-                        if ii <= length(obj.output.dcAvg)
-                            dataTimeSeries = [dataTimeSeries; obj.output.dcAvgStd(ii).dataTimeSeries];
-                        end
-                end
+            switch(lower(options))
+                case obj.datatypes.OPTICAL_DENSITY
+                    if iBlk <= length(obj.output.dod)
+                        dataTimeSeries = obj.output.dod(iBlk).dataTimeSeries;
+                        time = obj.output.dod(iBlk).time;
+                        measurementList = obj.output.dod(iBlk).GetMeasurementList('matrix');
+                    end
+                case obj.datatypes.CONCENTRATION
+                    if iBlk <= length(obj.output.dc)
+                        dataTimeSeries = obj.output.dc(iBlk).dataTimeSeries;
+                        time = obj.output.dc(iBlk).time;
+                        measurementList = obj.output.dc(iBlk).GetMeasurementList('matrix');
+                    end
+                case obj.datatypes.HRF_OPTICAL_DENSITY
+                    if iBlk <= length(obj.output.dodAvg)
+                        dataTimeSeries = obj.output.dodAvg(iBlk).dataTimeSeries;
+                        time = obj.output.dodAvg(iBlk).time;
+                        measurementList = obj.output.dodAvg(iBlk).GetMeasurementList('matrix');
+                    end
+                case obj.datatypes.HRF_CONCENTRATION
+                    if iBlk <= length(obj.output.dcAvg)
+                        dataTimeSeries = obj.output.dcAvg(iBlk).dataTimeSeries;
+                        time = obj.output.dcAvg(iBlk).time;
+                        measurementList = obj.output.dcAvg(iBlk).GetMeasurementList('matrix');
+                    end
+                case obj.datatypes.HRF_CONCENTRATION_STD
+                    if iBlk <= length(obj.output.dodAvg)
+                        dataTimeSeries = obj.output.dodAvgStd(iBlk).dataTimeSeries;
+                        time = obj.output.dodAvgStd(iBlk).time;
+                        measurementList = obj.output.dodAvgStd(iBlk).GetMeasurementList('matrix');
+                    end
+                case obj.datatypes.HRF_OPTICAL_DENSITY_STD
+                    if iBlk <= length(obj.output.dcAvg)
+                        dataTimeSeries = obj.output.dcAvgStd(iBlk).dataTimeSeries;
+                        time = obj.output.dcAvgStd(iBlk).time;
+                        measurementList = obj.output.dcAvgStd(iBlk).GetMeasurementList('matrix');
+                    end
             end
         end
         
-                
+
         
         % ----------------------------------------------------------------------------------
         function SetTincMan(obj, val, iBlk)
@@ -1799,6 +1864,29 @@ classdef ProcStreamClass < handle
             obj.input.RenameCondition(oldname, newname);
         end
         
+
+        
+        % ---------------------------------------------------------------
+        function InitDataTypes(obj)
+            obj.datatypes = struct(...
+                'RAW',{{'raw','raw data','intensity'}}, ...
+                'OPTICAL_DENSITY',{{'od'}}, ...
+                'CONCENTRATION',{{'conc','hb','hbo','hbr','hbt'}}, ...
+                'HRF_CONCENTRATION',{{'hrf conc','hrf_conc','hb hrf','conc hrf','hb_hrf','conc_hrf'}}, ...
+                'HRF_OPTICAL_DENSITY',{{'hrf od','hrf_od','od hrf','od_hrf'}}, ...
+                'HRF_CONCENTRATION_STD',{{'hrf conc std','hrf_conc_std','hb hrf std','conc hrf std','hb_hrf_std','conc_hrf_std'}}, ...
+                'HRF_OPTICAL_DENSITY_STD',{{'hrf od std','hrf_od_std','od hrf std','od_hrf_std'}} ...
+                );
+        end
+            
+        
+        
+        % ---------------------------------------------------------------
+        function datatypes = GetDataTypes(obj)
+            datatypes = obj.datatypes;           
+        end
+            
+        
     end
 
     
@@ -1879,24 +1967,7 @@ classdef ProcStreamClass < handle
         end
         
     end
-    
-    
-    
-    methods (Static)
         
-        % ----------------------------------------------------------------------------------
-        function out = ExportProcStreamFunctions(arg)
-            persistent saveProcStream;
-            if nargin == 0
-                out = saveProcStream;
-                return;
-            end
-            saveProcStream = arg;
-            out = saveProcStream;
-        end
-        
-    end
-    
 end
 
 

@@ -12,6 +12,7 @@ classdef Logger < handle
     
     methods
         
+        
         % -------------------------------------------------
         function self = Logger(appname, options)
             
@@ -79,6 +80,7 @@ classdef Logger < handle
             self.chapter = struct('maxsize',1e6, 'offset',0, 'number',1);
         end
         
+        
                
         % -------------------------------------------------
         function val = Filter(self, options)
@@ -95,11 +97,13 @@ classdef Logger < handle
             end
         end
         
-        
-        
+                
         
         % -------------------------------------------------
         function Write(self, s, varargin) %#ok<*INUSL>
+            if iscell(s)
+                s = [s{:}]; %#ok<NASGU>
+            end
             vars = '';
             for ii = 1:length(varargin)
                 varargin{ii} = replaceSpecialChars(varargin{ii});
@@ -129,6 +133,7 @@ classdef Logger < handle
         end
         
         
+        
         % -------------------------------------------------
         function WriteNoNewline(self, s, options, hwait)
             if ~exist('options','var')
@@ -139,6 +144,7 @@ classdef Logger < handle
             end
             self.WriteStr(s, options, hwait)
         end
+        
         
         
         % -------------------------------------------------
@@ -169,6 +175,7 @@ classdef Logger < handle
                 end
             end
         end
+        
         
         
         % -------------------------------------------------
@@ -234,6 +241,7 @@ classdef Logger < handle
         end
         
         
+        
         % -------------------------------------------------
         function Error(self, msg, options, hwait)
             if self.fhandle < 0
@@ -271,6 +279,7 @@ classdef Logger < handle
         end
         
         
+        
         % -------------------------------------------------
         function Open(self)
             try
@@ -283,7 +292,8 @@ classdef Logger < handle
             end
         end
         
-                
+
+        
         % -------------------------------------------------
         function Close(self, appname)
             if ~exist('appname','var') || isempty(appname)
@@ -312,6 +322,36 @@ classdef Logger < handle
         end
         
         
+        
+        % -------------------------------------------------
+        function Delete(self, appname)
+            if ~exist('appname','var') || isempty(appname)
+                appname = self.appname;
+            end
+            
+            % If appname is passed and does not equal the associated log
+            % filename then it's not meant to closed in this call so exit 
+            % without closing file handle
+            [~, fname] = fileparts(self.filename);
+            if ~strcmp(appname, fname)
+                return;
+            end
+            
+            if self.fhandle < 0
+                return;
+            end
+            if ~strcmp(self.appname, appname)
+                return;
+            end
+            self.Close(appname);
+            try
+                delete(self.filename);
+            catch
+            end
+        end
+        
+        
+        
         % -------------------------------------------------
         function SetDebugLevel(self, options)
             if ~exist('options','var') || isempty(options)
@@ -321,10 +361,12 @@ classdef Logger < handle
         end
         
         
+        
         % -------------------------------------------------
         function val = FileOnly(self)
             val = self.options.FILE_ONLY;
         end
+        
         
         
         % -------------------------------------------------
@@ -333,10 +375,12 @@ classdef Logger < handle
         end
         
         
+        
         % -------------------------------------------------
         function val = ConsoleOnly(self)
             val = self.options.CONSOLE_ONLY;
         end
+        
         
         
         % -------------------------------------------------
@@ -345,10 +389,12 @@ classdef Logger < handle
         end
         
         
+        
         % -------------------------------------------------
         function val = Debug(self)
             val = self.options.DEBUG;
         end
+        
         
         
         % -------------------------------------------------
@@ -362,6 +408,7 @@ classdef Logger < handle
             [~, filename] = fileparts(obj.filename);
         end
         
+        
 
         % ---------------------------------------------------------------
         function InitChapters(self)
@@ -373,6 +420,7 @@ classdef Logger < handle
         end
 
         
+        
         % ---------------------------------------------------------------
         function ResetChapter(self)
             if self.fhandle < 0
@@ -382,6 +430,7 @@ classdef Logger < handle
             fseek(self.fhandle, self.chapter.offset, 'bof');            
             fprintf(self.fhandle, '\nLogger: Chapter %d\n', self.chapter.number);
         end
+        
         
         
         % ---------------------------------------------------------------
@@ -398,6 +447,7 @@ classdef Logger < handle
             end
         end
     
+        
         
         % ---------------------------------------------------------------
         function b = IsOpen(self)

@@ -13,46 +13,56 @@ function [cmds, errs, msgs] = syncSubmodules(repo, options, preview)
 %               copy of the libraries. Default if argumenty not supplied is
 %               the current folder
 %
-%   options:    String argument with the possible values: {'init' | 'update'}
+%   options:    String argument with the possible values: {'init' | 'update'}. Default if argument 
+%               not supplied is 'update'.
+%
 %               'init'   - If standalone submodules have already been downloaded then do NOT
 %                          download again. Then sync the two libraries.
 %               'update' - If standalone submodules have already been downloaded then move 
 %                          the current version to submodules.old and download again. Then 
 %                          sync the two libraries
-%               Default if argument not supplied is 'init'
+%               'parent2submodules' - Ignore last revision date and force direction of copying 
+%                                     changes from parent repo to submodules.
+%               'submodules2parent' - Ignore last revision date and force direction of copying 
+%                                     changes from submodules to parent repo.
+%
 %
 %   preview:    Boolean argument: if true, does not make any changes, default is preview
 %
 %
 % Examples:
 %
-%   % Next 3 examples will only preview but will not change anything in the destination repo
+%   % Next three examples will only preview but will not change anything in the destination repo
 %
-%   syncSubmodules();
-%   syncSubmodules(pwd);
-%   syncSubmodules(pwd, 'init');
+%       syncSubmodules();
+%       syncSubmodules(pwd);
+%       syncSubmodules(pwd, 'init');
+%       syncSubmodules(pwd, 'init', true);
 %
 %
-%   % Next 2 examples will make changes in the destination repo
+%   % Next two examples will make changes in the destination repo, that is
+%   % your local repo with the later git commit
 %
-%   syncSubmodules(pwd, 'init', false);
-%   syncSubmodules(pwd, 'update', false);
+%       syncSubmodules(pwd, 'init', false);
+%       syncSubmodules(pwd, 'update', false);
 %
 %
 global synctool
 
 synctool = struct('repoParentFull','', 'repo1',[], 'repo2',[]);
 
-cmds = {};
-
 if ~exist('repo','var') || isempty(repo)
     repo = [pwd, '/'];
 end
 if ~exist('options','var')
-    options = 'init';
+    options = 'update';
 end
 if ~exist('preview','var')
     preview = true;
+end
+
+if ~optionExists(options, 'init') && ~optionExists(options, 'update')
+    options = [options, ':update'];
 end
 
 synctool.repoParentFull = filesepStandard_startup(repo,'full');
@@ -60,12 +70,18 @@ ii = 1;
 
 submodules = parseGitSubmodulesFile(synctool.repoParentFull);
 [cmds, errs, msgs] = gitSubmodulesClone(synctool.repoParentFull, false, options);
-
+fprintf('\n');
+for ii = 2:length(errs)
+    if errs(ii) > 0
+        [~,submodulename] = fileparts(submodules{ii-1,1});
+        fprintf('WARNING - Problem cloning %s: %s', submodulename, msgs{ii});
+    end
+end
 fprintf('\n');
 
 cmds{ii,1} = sprintf('cd %s', synctool.repoParentFull); ii = ii+1;
 for jj = 1:size(submodules,1)
-    submodulename = getRepos(submodules, jj);
+    submodulename = getRepos(submodules, jj, options);
     
     fprintf('Synching "%s" library:\n', submodulename);
     fprintf('Repo1:  %s, %s\n', synctool.repo1.path, synctool.repo1.datetime.str);
@@ -107,7 +123,7 @@ if ~exist('peerlessonly','var')
     peerlessonly = false;
 end
 
-fileTypes = {'.m','.txt','.cfg','.numberfiles','.fig'};
+fileTypes = {'.m','.txt','.cfg','.numberfiles','.fig','.gitmodules','.snirf','.nirs','.csd'};
 for iRepo = 1:2
     for iFt = 1:length(fileTypes)
         if eval( sprintf('~exist(''f%d'',''var'')', iRepo) )
@@ -174,7 +190,7 @@ end
 
 
 % -----------------------------------------------------------------------------------
-function submodulename = getRepos(submodules, jj)
+function submodulename = getRepos(submodules, jj, options)
 global synctool
 
 synctool.repo1 = initRepo();
@@ -191,8 +207,16 @@ end
 if r2(end)=='\' || r2(end)=='/'
     r2 = r2(1:end-1);
 end
-[date1, dateS1] = getLastRevisionDate(synctool.repoParentFull, r1);
-[date2, dateS2] = getLastRevisionDate(r2);
+if optionExists(options, 'parent2submodules')
+    [date1, dateS1] = getCurrTime();
+    [date2, dateS2] = getLastRevisionDate(r2);
+elseif optionExists(options, 'submodules2parent')
+    [date1, dateS1] = getLastRevisionDate(synctool.repoParentFull, r1);
+    [date2, dateS2] = getCurrTime();
+else
+    [date1, dateS1] = getLastRevisionDate(synctool.repoParentFull, r1);
+    [date2, dateS2] = getLastRevisionDate(r2);
+end
 status1 = hasChanges(r1);
 status2 = hasChanges(r2);
 
@@ -231,6 +255,15 @@ switch(lower(action))
     case 'add'
         if preview == false
             actionstr = 'Adding';
+            
+            % NOTE: As of Matlab R2020b, copyfile does not create the
+            % folder containing the destination file, if that folder does
+            % not already exist. Therefore we check if it exists; if not we
+            % create it.
+            p = fileparts(fdst);
+            if ~ispathvalid(p)
+                mkdir(p)
+            end
             copyfile(fsrc, fdst);
             gitAdd(repo.path, fdst);
         else
@@ -248,37 +281,6 @@ switch(lower(action))
             actionstr = 'Preview deleting';
         end
         fprintf('%s %s\n', actionstr, fdst);
-end
-
-
-
-% --------------------------------------------------------------------------
-function status = hasChanges(repo)
-status = 0;
-[modified, added, deleted, untracked] = gitStatus(repo);
-for ii = 1:length(modified)
-    c = str2cell(modified{ii}, ' ');
-    if isempty(strfind(c{2}, '..'))
-        status = 1;
-    end        
-end
-for ii = 1:length(added)
-    c = str2cell(added{ii}, ' ');
-    if isempty(strfind(c{2}, '..'))
-        status = 1;
-    end        
-end
-for ii = 1:length(deleted)
-    c = str2cell(deleted{ii}, ' ');
-    if isempty(strfind(c{2}, '..'))
-        status = 1;
-    end        
-end
-for ii = 1:length(untracked)
-    c = str2cell(untracked{ii}, ' ');
-    if isempty(strfind(c{2}, '..'))
-        status = 1;
-    end        
 end
 
 

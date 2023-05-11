@@ -472,12 +472,8 @@ classdef DataFilesClass < handle
                 if obj.files(ii).isdir
                     continue;
                 end
-                filename = [obj.rootdir, obj.files(ii).name];
-                try
+                filename = [obj.rootdir, obj.files(ii).name]; %#ok<NASGU>
                 eval( sprintf('o = %s(filename);', constructor) );
-                catch
-                    d=1;
-                end
                 if  o.GetError() < 0
                     obj.logger.Write('DataFilesClass.ErrorCheck - ERROR: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
                     errorIdxs = [errorIdxs, ii]; %#ok<AGROW>
