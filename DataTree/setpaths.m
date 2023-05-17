@@ -33,10 +33,6 @@ try
     % Add libraries on which DataTreeClass depends
     d = addDependenciesSearchPaths();
 
-    if ~isempty(which('setNamespace.m'))
-        setNamespace(appname);
-    end
-    
     % Start logger only after adding library paths. Logger is in the Utils libary. 
     logger = Logger('setpaths');
     
@@ -131,14 +127,15 @@ try
     
     warning('on','MATLAB:rmpath:DirNotFound');
     
-    PrintSystemInfo(logger, [appname; d]);
+    PrintSystemInfo(logger, ['DataTreeClass'; d]);
     logger.CurrTime('Setpaths completed on ');
     logger.Close();
     cd(currdir);
     
 catch ME
     
-    if exist('logger','var') && isa(logger, 'Logger')
+    printStack(ME)
+    if exist('logger','var')
         logger.Close();
     end
     cd(currdir);
@@ -183,7 +180,7 @@ if ischar(appPaths)
     else
         delimiter = ':';
     end        
-    appPaths = str2cell_startup(p, delimiter);
+    appPaths = str2cell(p, delimiter);
 end
 for kk = 1:length(appPaths)
     if strfind(appPaths{kk}, '.git')
@@ -228,23 +225,28 @@ printMethod(sprintf('REMOVED search paths for app %s\n', app));
 
 % ----------------------------------------------------
 function   d = addDependenciesSearchPaths()
-submodules = downloadDependencies();
-d = cell(size(submodules,1),1);
-for ii = 1:size(submodules)    
-    submodulespath = [filesepStandard_startup(pwd), submodules{ii,end}];
-    if ~exist(submodulespath,'dir')
+if exist([pwd, '/Utils/submodules'],'dir')
+    addpath([pwd, '/Utils/submodules'],'-end');
+end
+d = dependencies();
+for ii = 1:length(d)
+    rootpath = findFolder(pwd, d{ii});
+    rootpath(rootpath=='\') = '/';
+    if ispathvalid_startup([rootpath, '/Shared'],'dir')
+        rootpath = [rootpath, '/Shared'];
+    end
+    if ~exist(rootpath,'dir')
         printMethod(sprintf('ERROR: Could not find required dependency %s\n', d{ii}));
         continue;
     end
-    printMethod(sprintf('Adding searchpaths for submodule %s\n', submodulespath));
-    addSearchPaths(submodulespath);
-    d{ii,1} = submodules{ii,end};
+    addSearchPaths(rootpath);
 end
 
 
 
+
 % -----------------------------------------------------------------------------
-function [C,k] = str2cell_startup(str, delimiters, options)
+function [C,k] = str2cell(str, delimiters, options)
 
 % Option tells weather to keep leading whitespaces. 
 % (Trailing whitespaces are always removed)
@@ -309,55 +311,6 @@ end
 
 
 % -------------------------------------------------------------------------
-function submodules = parseGitSubmodulesFile(repo)
-submodules = cell(0,3);
-
-if ~exist('repo','var') || isempty(repo)
-    repo = pwd;
-end
-currdir = pwd;
-if repo(end) ~= '/' && repo(end) ~= '\'
-    repo = [repo, '/'];
-end
-
-filename = [repo, '.gitmodules'];
-if ~exist(filename, 'file')
-    return;
-end
-cd(repo);
-
-fid = fopen(filename, 'rt');
-strs = textscan(fid, '%s');
-strs = strs{1};
-kk = 1;
-for ii = 1:length(strs)
-    if strcmp(strs{ii}, '[submodule')
-        jj = 1;
-        while ~strcmp(strs{ii+jj}, '[submodule')
-            if ii+jj+2>length(strs)
-                break;
-            end
-            if strcmp(strs{ii+jj}, 'path')
-                submodules{kk,2} = [pwd, '/', strs{ii+jj+2}];
-            end
-            if strcmp(strs{ii+jj}, 'path')
-                submodules{kk,3} = strs{ii+jj+2};
-            end
-            if strcmp(strs{ii+jj}, 'url')
-                submodules{kk,1} = strs{ii+jj+2};
-            end
-            jj = jj+1;
-        end
-        kk = kk+1;
-    end
-end
-fclose(fid);
-cd(currdir);
-
-
-
-
-% -------------------------------------------------------------------------
 function dirpath = findFolder(repo, dirname)
 dirpath = '';
 if ~exist('repo','var')
@@ -398,9 +351,9 @@ if ~iscell(exclList)
     exclList = {exclList};
 end
 
-subdirFullpath = filesepStandard_startup(subdir,'full');
+subdirFullpath = filesepStandard(subdir,'full');
 
-if ~ispathvalid_startup(subdirFullpath, 'dir')
+if ~ispathvalid(subdirFullpath, 'dir')
     logger.Write('Warning: folder %s doesn''t exist\n', subdirFullpath);
     return;
 end
@@ -416,7 +369,7 @@ if isempty(dirs)
 end
 
 if isdotmfolder(subdirFullpath)
-    dotmfolders = {filesepStandard_startup(subdirFullpath, 'nameonly')};
+    dotmfolders = {filesepStandard(subdirFullpath, 'nameonly')};
 end
 
 for ii = 1:length(dirs)
@@ -437,7 +390,7 @@ end
 function b = isdotmfolder(folder)
 global MAXPATHLENGTH
 b = false;
-if ~ispathvalid_startup(folder, 'dir')
+if ~ispathvalid(folder, 'dir')
     return
 end
 if isempty(dir([folder,'/*.m']))
@@ -468,7 +421,7 @@ b = true;
 if pname(end)=='/'
     pname(end) = '';
 end
-if ~ispathvalid_startup(pname,'dir')
+if ~ispathvalid(pname,'dir')
     return;
 end
 [~,f,e] = fileparts(pname);
@@ -499,13 +452,13 @@ function diff = pathsubtract(p2_0, p1_0, options)
 if ~exist('options','var')
     options = '';
 end
-if optionExists_startup(options, 'nochange')
+if optionExists(options, 'nochange')
     option = '';
 else
     option = 'full';
 end
-p1 = filesepStandard_startup(p1_0, option);
-p2 = filesepStandard_startup(p2_0, option);
+p1 = filesepStandard(p1_0, option);
+p2 = filesepStandard(p2_0, option);
 if isempty(p1)
     p1 = p1_0;
 end
@@ -528,7 +481,7 @@ function pathname = filesepStandard_startup(pathname0, options)
 
 %
 % Usage:
-%    pathname = filesepStandard_startup(pathname, options)
+%    pathname = filesepStandard(pathname, options)
 %
 % Takes a pathname as argument and replaces any non-standard file/folder
 % separators with standard ones, that is '/'. It also gets rid of redundant
@@ -537,7 +490,7 @@ function pathname = filesepStandard_startup(pathname0, options)
 % Example:
 %
 %   >> pathname = 'C:\dir1\\\dir2\\dir3\test1/\test2/'
-%   >> pathname = filesepStandard_startup(pathname)
+%   >> pathname = filesepStandard(pathname)
 %
 %   pathname =
 %
@@ -801,8 +754,8 @@ if ispc()
     path1 = lower(path1);
     path2 = lower(path2);
 end
-p1 = str2cell_startup(path1,{'\','/'});
-p2 = str2cell_startup(path2,{'\','/'});
+p1 = str2cell(path1,{'\','/'});
+p2 = str2cell(path2,{'\','/'});
 if length(p1) ~= length(p2)
     return;
 end

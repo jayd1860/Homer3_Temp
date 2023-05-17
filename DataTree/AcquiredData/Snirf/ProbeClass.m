@@ -386,47 +386,23 @@ classdef ProbeClass < FileLoadSaveClass
         
         
         % ---------------------------------------------------------
-        function srcpos = GetSrcPos(obj, options) %#ok<*INUSD>
-            if ~exist('options','var')
-                options = '';
-            end
-            if optionExists(options,'2D')
-                if ~isempty(obj.sourcePos2D)
-                    srcpos = obj.sourcePos2D;
-                else
-                    srcpos = obj.sourcePos3D;
-                end
+        function srcpos = GetSrcPos(obj, ~)
+            if ~isempty(obj.sourcePos3D)
+                srcpos = obj.sourcePos3D;
             else
-                if ~isempty(obj.sourcePos3D)
-                    srcpos = obj.sourcePos3D;
-                else
-                    srcpos = obj.sourcePos2D;
-                end
-            end
+                srcpos = obj.sourcePos2D;
+            end                
         end
-        
         
         
         % ---------------------------------------------------------
-        function detpos = GetDetPos(obj, options)
-            if ~exist('options','var')
-                options = '';
-            end
-            if optionExists(options,'2D')
-                if ~isempty(obj.detectorPos2D)
-                    detpos = obj.detectorPos2D;
-                else
-                    detpos = obj.detectorPos3D;
-                end
+        function detpos = GetDetPos(obj, ~)
+            if ~isempty(obj.detectorPos3D)
+                detpos = obj.detectorPos3D;
             else
-	            if ~isempty(obj.detectorPos3D)
-	                detpos = obj.detectorPos3D;
-	            else
-	                detpos = obj.detectorPos2D;
-	            end
-	        end
+                detpos = obj.detectorPos2D;
+            end                
         end
-        
         
         
         % -------------------------------------------------------
@@ -442,6 +418,7 @@ classdef ProbeClass < FileLoadSaveClass
                 return;
             end
             if isempty(obj) && isempty(obj2)
+                b = true;
                 return;
             end
             if ~all(obj.wavelengths(:)==obj2.wavelengths(:))
@@ -500,7 +477,6 @@ classdef ProbeClass < FileLoadSaveClass
         end
         
         
-        
         % ----------------------------------------------------------------------------------
         function nbytes = MemoryRequired(obj)
             nbytes = 0;
@@ -509,7 +485,6 @@ classdef ProbeClass < FileLoadSaveClass
                 nbytes = nbytes + eval(sprintf('sizeof(obj.%s)', fields{ii}));
             end
         end
-        
         
         
         % ----------------------------------------------------------------------------------
@@ -525,7 +500,6 @@ classdef ProbeClass < FileLoadSaveClass
             b = false;
         end
 
-        
         
         % ----------------------------------------------------------------------------------
         function b = IsValid(obj)

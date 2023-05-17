@@ -13,7 +13,6 @@ DrawConfigParams(hf, hBttnSave);
 handles.figure = hf;
 
 
-
 % ----------------------------------------------------------
 function [filenames, nParamsPerCol, lastpos, options] = ParseArgs(args)
 filenames = {};

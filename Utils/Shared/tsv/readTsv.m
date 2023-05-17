@@ -147,19 +147,7 @@ if ~isempty(errmsg)
         errmsgLen = 100;
     end
     MenuBox(errmsg,{},[],errmsgLen);
-    answer = cfg.GetValue('Replace TSV File Tabs with Spaces');
-    if strcmpi(answer, 'no') || isempty(answer)
-        err = -1;
-    else
-        msg = sprintf('Do you want to replace TSV File Tabs with Spaces %s', filename);
-        q = MenuBox(msg,{'YES','NO'},[],[],'dontAskAgain');        if 
-        if q(2) == 1
-            cfg.SetValue('Replace TSV File Tabs with Spaces','No');
-            cfg.Save();
-        end
-        if q(1) == 1
-            
-    end
+    err = -1;
 end
 printMethod(errmsg);
 

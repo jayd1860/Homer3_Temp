@@ -48,4 +48,11 @@ else
     writeTsv(dst, tsv);
 end
 
+% Remove stim from
+% if optionExists(options, 'removeStim')
+%     s.Load();
+%     s.stim = StimClass().empty();
+%     s.Save();
+% end
+
 

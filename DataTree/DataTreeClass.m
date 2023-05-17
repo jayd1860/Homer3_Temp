@@ -478,7 +478,7 @@ classdef DataTreeClass <  handle
         function [exportStim, options] = AutoExportStim(obj)
             global cfg 
             v1 = cfg.GetValue('Export Stim To TSV File');
-            v2 = cfg.GetValue('Export Stim To TSV File Regenerate');
+            v2 = cfg.GetValue('Export Stim To TSV File Regenerate');            
             exportStim = false;
             options = '';
             if strcmpi(v1, 'yes')
