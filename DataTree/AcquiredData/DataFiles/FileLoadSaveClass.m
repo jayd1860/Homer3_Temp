@@ -5,6 +5,7 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
         fileformat;
         supportedFomats;
         err;
+        errmsgs
         dataStorageScheme;        
     end
     
@@ -20,6 +21,7 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
                 'hdf5', {{'hdf','.hdf','hdf5','.hdf5','hf5','.hf5','h5','.h5'}} ...
                 );
             obj.err = 0;
+            obj.errmsgs = {};
             obj.dataStorageScheme = 'memory';
         end
         
@@ -141,17 +143,28 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
         
         
         % -------------------------------------------------------
-        function SetError(obj, err)
-            obj.err = err;
+        function SetError(obj, err, errmsg)
+            if ~exist('errmsg','var')
+                errmsg = '';
+            end
+            obj.err = obj.err + 2^abs(err);
+            if isempty(errmsg)
+                return
+            end
+            obj.errmsgs{end+1} = errmsg;
+            err = obj.err;
         end
         
+        
         % -------------------------------------------------------
-        function err = GetError(obj)
+        function [err, errmsgs] = GetError(obj)
             err = [];
+            errmsgs = {};
             if isempty(obj)
                 return
             end
-            err = obj.err;
+            err = -1 * obj.err;
+            errmsgs = obj.errmsgs;
         end
         
         

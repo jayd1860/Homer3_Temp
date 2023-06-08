@@ -3,21 +3,21 @@ classdef ProbeClass < FileLoadSaveClass
     properties
         wavelengths
         wavelengthsEmission
+        sourceLabels
         sourcePos2D
+        sourcePos3D
+        detectorLabels
         detectorPos2D
+        detectorPos3D
+        landmarkLabels
         landmarkPos2D
         landmarkPos3D
-        sourcePos3D
-        detectorPos3D
         frequencies
         timeDelays
         timeDelayWidths
         momentOrders
         correlationTimeDelays
         correlationTimeDelayWidths
-        sourceLabels
-        detectorLabels
-        landmarkLabels
     end
     
     properties (Access = private)
@@ -531,23 +531,43 @@ classdef ProbeClass < FileLoadSaveClass
         function b = IsValid(obj)
             b = false;
             if obj.IsEmpty()
+                obj.SetError('probe field is missing', -2);
                 return;
             end
-            if iscolumn(obj.sourcePos2D)
+            if size(obj.sourcePos2D,2) < 2 || size(obj.sourcePos2D,2) > 3
+                obj.SetError(sprintf('probe.sourcePos2D field has wrong number (%d) of coordinates', ...
+                                     size(obj.sourcePos2D,2)), -3);
                 return;
             end
-            if length(obj.sourcePos2D)>4
-                if size(obj.sourcePos2D,2) > size(obj.sourcePos2D,1)
+            if size(obj.sourcePos3D,2) ~= 3
+                obj.SetError(sprintf('probe.sourcePos3D field has wrong number (%d) of coordinates', ...
+                                     size(obj.sourcePos3D,2)), -4);
                     return;
                 end
-            end
-            if iscolumn(obj.detectorPos2D)
+            if size(obj.detectorPos2D,2) < 2 || size(obj.detectorPos2D,2) > 3
+                obj.SetError(sprintf('probe.detectorPos2D field has wrong number (%d) of coordinates', ...
+                                     size(obj.detectorPos2D,2)), -5);
                 return;
             end
-            if length(obj.detectorPos2D)>4
-                if size(obj.detectorPos2D,2) > size(obj.detectorPos2D,1)
+            if size(obj.detectorPos3D,2) ~= 3
+                obj.SetError(sprintf('probe.detectorPos3D field has wrong number (%d) of coordinates', ...
+                                     size(obj.detectorPos3D,2)), -6);
+                return;
+            end
+            if size(obj.landmarkPos2D,2) < 2 || size(obj.landmarkPos2D,2) > 3
+                obj.SetError(sprintf('probe.landmarkPos2D field has wrong number (%d) of coordinates', ...
+                                     size(obj.landmarkPos2D,2)), -7);
+                return;
+            end
+            if size(obj.landmarkPos3D,2) ~= 3
+                obj.SetError(sprintf('probe.landmarkPos3D field has wrong number (%d) of coordinates', ...
+                                     size(obj.landmarkPos3D,2)), -8);
                     return;
                 end
+            if (length(obj.landmarkLabels) ~= size(obj.landmarkPos2D,1)) && (length(obj.landmarkLabels) ~= size(obj.landmarkPos3D,1))
+                obj.SetError(sprintf('Size of probe.landmarkLabels (%d) does NOT equal number of landmark positions (2D = %d, 3D = %d)', ...
+                                     length(probe.landmarkLabels), size(obj.landmarkPos2D,1), size(obj.landmarkPos3D,1)), -9);
+                return;
             end
             b = true;
         end

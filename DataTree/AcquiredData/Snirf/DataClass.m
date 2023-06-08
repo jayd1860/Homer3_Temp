@@ -178,7 +178,6 @@ classdef DataClass < FileLoadSaveClass
             end
             
             err = ErrorCheck(obj, err);
-            obj.SetError(err); 
         end
         
         
