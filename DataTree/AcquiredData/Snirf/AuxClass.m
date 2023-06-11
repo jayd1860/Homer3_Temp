@@ -247,24 +247,19 @@ classdef AuxClass < FileLoadSaveClass
         function err = ErrorCheck(obj)
             err = 0;
             if isempty(obj.name)
-                err = -1;
-                return
+                obj.SetError(-2, sprintf('aux.name field is empty'));
             end
             if isempty(obj.dataTimeSeries)
-                err = -2;
-                return
+                obj.SetError(-3, sprintf('aux.dataTimeSeries field is empty'));
             end
             if isempty(obj.time)
-                err = -3;
-                return
+                obj.SetError(-4, sprintf('aux.time field is empty'));
             end
             if length(obj.dataTimeSeries) ~= length(obj.time)
-                err = -4;
-                return
+                obj.SetError(-5, sprintf('aux.time size does not equal aux.dataTimeSeries'));
             end
             if ~ischar(obj.name)
-                err = -5;
-                return
+                obj.SetError(-6, sprintf('aux.name field is empty'));
             end
         end
         

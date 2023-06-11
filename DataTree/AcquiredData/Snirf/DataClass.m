@@ -296,24 +296,23 @@ classdef DataClass < FileLoadSaveClass
                     return;
                 end
                 if size(obj.dataTimeSeries,1) ~= length(obj.time)
-                    err = -3;
+                    err = obj.SetError(-3, 'data.dataTimeSeries size does not equal data.time size');
                 end
                 if size(obj.dataTimeSeries,2) ~= length(obj.measurementList)
-                    err = -4;
+                    err = obj.SetError(-4, 'data.dataTimeSeries number of columns does not equal length of data.measurementList');
                 end
                 if all(obj.dataTimeSeries==0)
-                    err = 5;
+                    err = obj.SetError(5, 'data.dataTimeSeries all values are zero');
                 end
             end
             
             % Check time 
             if ismember('time',params)
                 if isempty(obj.time)
-                    err = -6;
-                    return;
+                    err = obj.SetError(-6, 'data.time is empty');
                 end
                 if all(obj.time==0)
-                    err = 7;
+                    err = obj.SetError(-7, 'data.time all time points are zero');
                 end
             end
             
@@ -325,9 +324,11 @@ classdef DataClass < FileLoadSaveClass
                 while i <= size(ml,1)
                     k = find(ml(:,1)==ml(i,1) & ml(:,2)==ml(i,2));
                     if length(k) < nDatatypes
-                        err = -7;
+                        err = obj.SetError(-7, sprintf('data.measurementList number of datatypes (%d) for SD pair %d is less than number of data types in measurement list (%d)', ...
+                                          length(k), i, nDatatypes));
                     elseif length(k) > nDatatypes
-                        err = -8;
+                        err = obj.SetError(-8, sprintf('data.measurementList number of datatypes (%d) for SD pair %d exceeds number of data types in measurement list (%d)', ...
+                                          length(k), i, nDatatypes));
                     end
                     if err < 0
                         break

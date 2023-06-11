@@ -1,6 +1,6 @@
 classdef FileLoadSaveClass < matlab.mixin.Copyable
     
-    properties (Access = private)
+    properties (Access = public)
         filename;
         fileformat;
         supportedFomats;
@@ -143,11 +143,12 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
         
         
         % -------------------------------------------------------
-        function SetError(obj, err, errmsg)
+        function err = SetError(obj, err0, errmsg)
+            err = 0;
             if ~exist('errmsg','var')
                 errmsg = '';
             end
-            obj.err = obj.err + 2^abs(err);
+            obj.err = bitor(obj.err, 2^abs(err0));
             if isempty(errmsg)
                 return
             end
@@ -157,14 +158,19 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
         
         
         % -------------------------------------------------------
-        function [err, errmsgs] = GetError(obj)
-            err = [];
-            errmsgs = {};
+        function [err, errmsg] = GetError(obj)
+            err = 0;
+            errmsg = '';
             if isempty(obj)
                 return
             end
+            if isempty(obj.errmsgs)
+                return
+            end
             err = -1 * obj.err;
-            errmsgs = obj.errmsgs;
+            for ii = 1:length(obj.errmsgs)
+                errmsg = sprintf('%s%s\n',obj.errmsgs{ii});
+            end
         end
         
         

@@ -424,13 +424,15 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 end
                 
                 err = obj.data(ii).LoadHdf5(fileobj, [obj.location, '/data', num2str(ii)]);
-                if err < 0
+                if err == -1
                     obj.data(ii).delete();
                     obj.data(ii) = [];
                     if err == -1
                         err = 0;
                     end
                     break;
+                elseif err < -1
+                    break
                 elseif err > 0
                     break
                 end
@@ -558,15 +560,13 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 fileobj = obj.GetFilename();
             end
             if isempty(fileobj)
-                obj.SetError(-1, errmsgs)
-                err = obj.GetError();     % preserve error state if exiting early
+                obj.SetError(-1, 'Snirf: file object is empty')
                 return;
             end
             
             % Don't reload if not empty
             if ~obj.IsEmpty()
                 obj.LoadStim(fileobj);
-                err = obj.GetError();     % preserve error state if exiting early
                 return;
             end
             
@@ -578,9 +578,8 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 % Open group
                 [obj.gid, obj.fid] = HDF5_GroupOpen(fileobj, '/');
                 
-                
-                if obj.SetLocation() < 0 && err == 0
-                    err = -1;
+                if obj.SetLocation() < 0
+                    obj.SetError(-2, 'Snirf: Could not set HDF5 group location')
                 end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -590,47 +589,45 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
                 %%%% Load formatVersion
-                if obj.LoadFormatVersion() < 0 && err >= 0
-                    err = -2;
+                if obj.LoadFormatVersion() 
+                    obj.SetError(-3, 'snirf.formatVersion error')
                 end
                 
                 %%%% Load metaDataTags
-                if obj.LoadMetaDataTags(obj.fid) < 0 && err >= 0
+                if obj.LoadMetaDataTags(obj.fid) < 0
                     % Here a positive return value means that invalid data meta tags
-                    % should NOT be a show stopper if we can help it, if the reste of the data
+                    % should NOT be a show stopper if we can help it, if the rest of the data 
                     % is valid. So just let user know they're invalid with a warning.
-                    err = 3;
+                    obj.SetError(4, 'snirf.metaDataTags warning')
                 end
                 
                 %%%% Load data
                 errtmp = obj.LoadData(obj.fid);
-                if errtmp < 0 && err >= 0
-                    err = -4;
-                elseif errtmp == 5 && err >= 0
-                    err = 8;
-                elseif errtmp > 0 && err >= 0
-                    err = 4;
+                if errtmp < 0
+                    obj.SetError(-5, 'snirf.data error')
+                elseif errtmp > 0
+                    obj.SetError(5, 'snirf.data warning')
                 end
                 
                 %%%% Load stim
-                if obj.LoadStim(obj.fid) < 0 && err >= 0
+                if obj.LoadStim(obj.fid) < 0
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    err = 5;
+                    obj.SetError(6, 'snirf.stim error')
                 end
                 
                 %%%% Load probe
-                if obj.LoadProbe(obj.fid) < 0 && err >= 0
-                    err = -6;
+                if obj.LoadProbe(obj.fid) < 0
+                    obj.SetError(-7, 'snirf.stim error')
                 end
                 
                 %%%% Load aux. This is an optional field
-                if obj.LoadAux(obj.fid) < 0 && err >= 0
+                if obj.LoadAux(obj.fid) < 0
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    err = 7;
+                    obj.SetError(8, 'snirf.aux error')
                 end
                 
                 % Close group
@@ -638,13 +635,15 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 
             catch
                 
-                err = -1;
+                obj.SetError(-9, 'snirf unidentified error')
                 
             end
             
             if obj.fid > 0
                 H5F.close(obj.fid);
             end
+            
+            err = obj.GetError();
             
         end
     end
@@ -661,7 +660,6 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 obj.metaDataTags.SaveHdf5(fileobj, [obj.location, '/metaDataTags']);
             end
         end
-        
         
         
         % -------------------------------------------------------
@@ -700,7 +698,6 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 obj.aux(ii).SaveHdf5(fileobj, [obj.location, '/aux', num2str(ii)]);
             end
         end
-        
         
         
         % -------------------------------------------------------
@@ -764,40 +761,58 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
     end
     
     
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %  Error validation methods
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     methods
         
         % -------------------------------------------------------
-        function [errmsgs, err] = GetError(obj)
+        function [err, errmsgs] = GetError(obj)
+            err = obj.err;
+            errmsgs = obj.errmsgs;
+        end
+                   
+        
+        % -------------------------------------------------------
+        function [err, errmsgs] = GetError2(obj)
+            err = [0,0,0,0,0];
             errmsgs = {};
-            err = [];
             if isempty(obj)
                 return;
             end
-            errmsgs = obj.probe.GetError();
-            if ~isempty(errmsgs)
-                obj.SetError(-2, errmsgs)
-            end            
-            errmsgs = obj.data.GetError();
-            if ~isempty(errmsgs)
-                obj.SetError(-3, errmsgs)
+            [err(1), errmsgs{1,1}] = obj.probe.GetError();
+            if ~isempty(errmsgs{1,1})
+                obj.SetError(-2, errmsgs{1,1})
             end
-            errmsgs = obj.stim.GetError();
-            if ~isempty(errmsgs)
-                obj.SetError(-4, errmsgs)
+            for ii = 1:length(obj.data)
+                [err(2), errmsgs{2,1}] = obj.data(ii).GetError();
+                if ~isempty(errmsgs{2,1})
+                    obj.SetError(-3, errmsgs{2,1})
+                end
             end
-            errmsgs = obj.aux.GetError();
-            if ~isempty(errmsgs)
-                obj.SetError(-5, errmsgs)
+            for ii = 1:length(obj.stim)
+                [err(3), errmsgs{3,1}] = obj.stim(ii).GetError();
+                if ~isempty(errmsgs{3,1})
+                    obj.SetError(-4, errmsgs{3,1})
+                end
             end
-            errmsgs = obj.metaDataTags.GetError();
-            if ~isempty(errmsgs)
-                obj.SetError(-6, errmsgs)
+            for ii = 1:length(obj.aux)
+                [err(4), errmsgs{4,1}] = obj.aux(ii).GetError();
+                if ~isempty(errmsgs{4,1})
+                    obj.SetError(-5, errmsgs{4,1})
+                end
             end
-            errmsgs = 
+            [err(5), errmsgs{5,1}] = obj.metaDataTags.GetError();
+            if ~isempty(errmsgs{5,1})
+                obj.SetError(-6, errmsgs{5,1})
+            end
+            
+            errTotal = 0;
+            b = (err == 0);
+            for ii = 1:length(b)
+                errTotal = errTotal + b(ii)*2^(ii-1);
+            end
+            err = errTotal;
         end
         
     end

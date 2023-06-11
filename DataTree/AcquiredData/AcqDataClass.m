@@ -6,9 +6,6 @@ classdef AcqDataClass < matlab.mixin.Copyable
     properties (Access = private)
         logger
     end
-    properties (Access = protected)
-        errmsgs
-    end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % These methods must be implemented in any derived class
@@ -108,30 +105,6 @@ classdef AcqDataClass < matlab.mixin.Copyable
         
         
        % -------------------------------------------------------
-        function err = Error(obj)
-            err = obj.GetError();
-        end
-        
-        
-        
-        % ---------------------------------------------------------
-        function msg = GetErrorMsg(obj)
-            msg = '';
-            if isempty(obj)
-                msg = 'AcqDataClass object is empty';
-                return;
-            end
-            if isempty(obj.errmsgs)
-                return;
-            end
-            if ~obj.GetError()
-                return;
-            end
-            msg = obj.errmsgs{abs(obj.GetError())};
-        end
-        
-        
-        
         % -------------------------------------------------------
         function err = LoadBids(obj, fileobj)
             err = obj.LoadStimOverride(fileobj);
@@ -335,6 +308,21 @@ classdef AcqDataClass < matlab.mixin.Copyable
             fnameTsv = [filesepStandard(pname), fname(1:k-1), '_events.tsv'];
         end
                 
+        
+        
+        % ----------------------------------------------------------------------------------
+        function errmsg = GetErrorMsg(obj)
+            errmsg = '';
+            [~, errmsgs] = obj.GetError();
+            for ii = 1:length(errmsgs)
+                if isempty(errmsgs{ii})
+                    continue
+                end
+                errmsg = sprintf('%s%s\n', errmsg, errmsgs{ii});
+            end
+        end
+        
+        
     end
     
 end
