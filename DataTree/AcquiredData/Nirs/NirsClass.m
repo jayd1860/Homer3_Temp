@@ -1381,6 +1381,12 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
         
         % ----------------------------------------------------------------------------------
         function ConvertSnirfProbe(obj, snirf)
+            if isempty(snirf)
+                return
+            end
+            if isempty(snirf.probe)
+                return
+            end
             obj.SD.Lambda = snirf.probe.wavelengths;
             obj.SD.SrcPos = snirf.probe.sourcePos2D;
             obj.SD.DetPos = snirf.probe.detectorPos2D;

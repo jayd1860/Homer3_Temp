@@ -1,6 +1,6 @@
 function err = hdf5write_safe(fileobj, name, val, options)
 err = -1;
-if isempty(val)
+if ~exist('val','var')
     return;
 end
 if ~exist('options','var')

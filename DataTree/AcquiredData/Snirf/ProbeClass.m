@@ -563,7 +563,7 @@ classdef ProbeClass < FileLoadSaveClass
                 obj.SetError(sprintf('probe.landmarkPos3D field has wrong number (%d) of coordinates', ...
                                      size(obj.landmarkPos3D,2)), -8);
                     return;
-                end
+            end
             if (length(obj.landmarkLabels) ~= size(obj.landmarkPos2D,1)) && (length(obj.landmarkLabels) ~= size(obj.landmarkPos3D,1))
                 obj.SetError(sprintf('Size of probe.landmarkLabels (%d) does NOT equal number of landmark positions (2D = %d, 3D = %d)', ...
                                      length(probe.landmarkLabels), size(obj.landmarkPos2D,1), size(obj.landmarkPos3D,1)), -9);
