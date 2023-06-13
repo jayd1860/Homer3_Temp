@@ -496,7 +496,8 @@ classdef DataFilesClass < handle
                 filename = [obj.rootdir, obj.files(ii).name]; %#ok<NASGU>
                 eval( sprintf('o = %s(filename);', constructor) );
                 if  o.GetError() < 0
-                    obj.logger.Write('DataFilesClass.ErrorCheck - ERROR: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
+                    msg = sprintf('DataFilesClass.ErrorCheck - ERROR: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
+                    obj.LogError(msg, obj.files(ii));
                     errorIdxs = [errorIdxs, ii]; %#ok<AGROW>
                 elseif o.GetError() > 0
                     obj.logger.Write('DataFilesClass.ErrorCheck - WARNING: In file  "%s"  %s. File will be added anyway.\n', obj.files(ii).name, o.GetErrorMsg());
@@ -508,6 +509,9 @@ classdef DataFilesClass < handle
             end
 
             obj.AddErrorFiles(errorIdxs);
+            if obj.nfiles == 0
+                obj.files = FileClass.empty();
+            end            
             close(hwait);
         end
         
@@ -533,6 +537,22 @@ classdef DataFilesClass < handle
             end
             obj.files(errorIdxs) = [];
             obj.nfiles = obj.nfiles - length(errorIdxs);
+        end
+        
+
+        
+        % ----------------------------------------------------------
+        function alreadyExists = LogError(obj, msg, file)
+            alreadyExists = false;
+            for kk = 1:length(obj.filesErr)
+                if strcmp(obj.filesErr(kk).name, file.name)
+                    alreadyExists = true;
+                    break;
+                end
+            end
+            if ~alreadyExists
+                obj.logger.Write(msg)
+            end
         end
         
 

@@ -65,6 +65,12 @@ classdef MetaDataTagsClass  < FileLoadSaveClass
                 
                 % Open group
                 [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, 'metaDataTags field can''t be loaded');
+                        return 
+                    end
+                end
                 
                 metaDataStruct = h5loadgroup(gid);
                 tags = fieldnames(metaDataStruct); %#ok<*PROPLC>

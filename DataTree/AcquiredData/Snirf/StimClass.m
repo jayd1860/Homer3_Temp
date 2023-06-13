@@ -289,11 +289,14 @@ classdef StimClass < FileLoadSaveClass
             if isempty(obj.name)
                 err = obj.SetError(-3, sprintf('stim.name is empty'));
             end
-            if ~isempty(obj.data) && size(obj.data,2)<3
-                err = obj.SetError(-4, 'stim.data is NOT empty AND has less than 3 columns');
-                if size(obj.data, 2) ~= length(obj.dataLabels)
-                    err = obj.SetError(-5, 'stim.data number of columns does not equal stim.dataLabels number of columns');
-                end
+            if ~ischar(obj.name)
+                err = obj.SetError(-4, sprintf('stim.name is empty'));
+            end
+            if ~isempty(obj.data) && (size(obj.data,2)<3)
+                err = obj.SetError(-5, 'stim.data is NOT empty AND has less than 3 columns');
+            end
+            if ~isempty(obj.data) && (size(obj.data,2) ~= length(obj.dataLabels))
+                err = obj.SetError(-5, 'stim.data number of columns does not equal stim.dataLabels number of columns');
             end
         end
         
