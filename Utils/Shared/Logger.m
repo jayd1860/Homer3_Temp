@@ -243,7 +243,7 @@ classdef Logger < handle
         
         
         % -------------------------------------------------
-        function Error(self, msg, options, hwait)
+        function GetError(self, msg, options, hwait)
             if self.fhandle < 0
                 return;
             end

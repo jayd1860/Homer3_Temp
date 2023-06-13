@@ -73,9 +73,11 @@ classdef AuxClass < FileLoadSaveClass
                 [gid, fid] = HDF5_GroupOpen(fileobj, location);
                 
                 % Absence of optional aux field raises error > 0
-                if gid.double < 0
-                    err = 1;
-                    return;
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, sprintf('aux field %s field can''t be loaded', location));
+                        return 
+                    end
                 end
                 
                 obj.name            = HDF5_DatasetLoad(gid, 'name');
@@ -94,24 +96,24 @@ classdef AuxClass < FileLoadSaveClass
                 if iscell(obj.name) && length(obj.name) == 1
                     obj.name = obj.name{1};
                 end
-                
-                err = obj.ErrorCheck();
-                
+                                
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
                 
             catch
                 
-                if gid.double > 0
-                    % If optional aux field exists BUT is in some way invalid it raises error < 0
-                    err = -6;
+                if isstruct(gid)
+                    if gid.double < 0 
+                        obj.SetError(0, sprintf('aux field %s field can''t be loaded', location));
+                    end
                 else
-                    err = 1;
+                    obj.SetError(-7, sprintf('aux field %s field can''t be loaded', location));
                 end
                 
             end
             
-            obj.SetError(err); 
+            err = obj.ErrorCheck();
+            
         end
 
         

@@ -97,18 +97,24 @@ classdef StimClass < FileLoadSaveClass
                 fileobj = obj.GetFilename();
             end 
             if isempty(fileobj)
-               err = -1;
-               return;
+                err = obj.SetError(-1, sprintf('%s does not exist', location));
+                return;
             end
                
             try 
                 
                 % Open group
                 [gid, fid] = HDF5_GroupOpen(fileobj, location);
-
-                % Absence of optional aux field raises error > 0
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, 'stim field can''t be loaded');
+                        return
+                    end
+                end
+                
+                % Absence of optional stim field raises error > 0
                 if gid.double < 0
-                    err = 1;
+                    err = obj.SetError(0, sprintf('%s does not exist', location));
                     return;
                 end
                 
@@ -122,7 +128,6 @@ classdef StimClass < FileLoadSaveClass
                 if isempty(obj.dataLabels)
                     obj.dataLabels = {'Onset', 'Duration', 'Amplitude'};
                 end
-                err = obj.ErrorCheck();
 
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
@@ -132,13 +137,16 @@ classdef StimClass < FileLoadSaveClass
             catch
                 
                 if gid.double > 0
-                    err = -2;
+                    obj.SetError(0, sprintf('%s does not exist', location));
                 else
                     err = 1;
+                    return
                 end
                 
-            end            
-            obj.SetError(err); 
+            end
+            
+            err = obj.ErrorCheck();
+            
         end
         
         
@@ -279,12 +287,12 @@ classdef StimClass < FileLoadSaveClass
             
             % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
             if isempty(obj.name)
-                err = -3;
+                err = obj.SetError(-3, sprintf('stim.name is empty'));
             end
             if ~isempty(obj.data) && size(obj.data,2)<3
-                err = err-4;
+                err = obj.SetError(-4, 'stim.data is NOT empty AND has less than 3 columns');
                 if size(obj.data, 2) ~= length(obj.dataLabels)
-                    err = err-5;
+                    err = obj.SetError(-5, 'stim.data number of columns does not equal stim.dataLabels number of columns');
                 end
             end
         end

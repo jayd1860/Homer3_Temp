@@ -1,4 +1,4 @@
-classdef AcqDataClass < matlab.mixin.Copyable
+classdef AcqDataClass < FileLoadSaveClass
        
     properties (Access = public)
         bids
@@ -104,7 +104,7 @@ classdef AcqDataClass < matlab.mixin.Copyable
         
         
         
-       % -------------------------------------------------------
+        % -------------------------------------------------------
         % -------------------------------------------------------
         function err = LoadBids(obj, fileobj)
             err = obj.LoadStimOverride(fileobj);
@@ -307,22 +307,7 @@ classdef AcqDataClass < matlab.mixin.Copyable
             end
             fnameTsv = [filesepStandard(pname), fname(1:k-1), '_events.tsv'];
         end
-                
-        
-        
-        % ----------------------------------------------------------------------------------
-        function errmsg = GetErrorMsg(obj)
-            errmsg = '';
-            [~, errmsgs] = obj.GetError();
-            for ii = 1:length(errmsgs)
-                if isempty(errmsgs{ii})
-                    continue
-                end
-                errmsg = sprintf('%s%s\n', errmsg, errmsgs{ii});
-            end
-        end
-        
-        
+    
     end
     
 end

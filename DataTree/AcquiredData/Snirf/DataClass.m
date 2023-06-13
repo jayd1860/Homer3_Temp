@@ -143,10 +143,10 @@ classdef DataClass < FileLoadSaveClass
                 [gid, fid] = HDF5_GroupOpen(fileobj, location);
                 if isstruct(gid)
                     if gid.double < 0 
-                        err = -1;
+                        err = obj.SetError(0, 'data field can''t be loaded');
                         return 
                     end
-                end                
+                end
                 
                 obj.dataTimeSeries  = HDF5_DatasetLoad(gid, 'dataTimeSeries');
                 obj.time            = HDF5_DatasetLoad(gid, 'time');
@@ -156,25 +156,28 @@ classdef DataClass < FileLoadSaveClass
                     if ii > length(obj.measurementList)
                         obj.measurementList(ii) = MeasListClass;
                     end
-                    if obj.measurementList(ii).LoadHdf5(fileobj, [location, '/measurementList', num2str(ii)]) < 0
-                        if ~obj.measurementList(ii).IsEmpty()
-                            err = -1;                        
-                        else
-                            obj.measurementList(ii).delete();
-                            obj.measurementList(ii) = [];
-                        end
-                        if ii == 1
-                            err = -1;
-                        end
-                        break;
+                    err = obj.measurementList(ii).LoadHdf5(fileobj, [location, '/measurementList', num2str(ii)]);
+                    if  err == -1
+                        obj.measurementList(ii).delete();
+                        obj.measurementList(ii) = [];
+                        err = 0;
+                        break
                     end
-                    ii=ii+1;
+                    ii = ii+1;
                 end
                 
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
+            
             catch
-                err = -1;
+                
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, 'data field can''t be loaded');
+                        return 
+                    end
+                end
+                
             end
             
             err = ErrorCheck(obj, err);
@@ -292,7 +295,7 @@ classdef DataClass < FileLoadSaveClass
             % Check dataTimeSeries
             if ismember('dataTimeSeries',params)
                 if obj.IsEmpty()
-                    err = -2;
+                    err = obj.SetError(-2, 'data field is empty');
                     return;
                 end
                 if size(obj.dataTimeSeries,1) ~= length(obj.time)
@@ -335,7 +338,7 @@ classdef DataClass < FileLoadSaveClass
                     end
                     i = i+length(k);
                 end
-            end
+            end            
         end
         
     end
@@ -397,11 +400,11 @@ classdef DataClass < FileLoadSaveClass
                 options = '';
             end
             ml = zeros(0, 2);
-            jj=1;
-            for ii=1:length(obj.measurementList)
+            jj = 1;
+            for ii = 1:length(obj.measurementList)
                 if isempty(find(ml(:,1) == obj.measurementList(ii).sourceIndex & ml(:,2) == obj.measurementList(ii).detectorIndex))
                     ml(jj,:) = [obj.measurementList(ii).sourceIndex, obj.measurementList(ii).detectorIndex];
-                    jj=jj+1;
+                    jj = jj+1;
                 end
             end
             if strcmp(options, 'reshape')
@@ -463,12 +466,12 @@ classdef DataClass < FileLoadSaveClass
             % Get all the measurementList array idxs matching the
             % conditions in the CondNames argument
             idxs = zeros(1,length(obj.measurementList));
-            kk=1;
+            kk = 1;
             for iCh = 1:length(obj.measurementList)
                 for iCond = 1:length(CondIdxs)
                     if sum(obj.measurementList(iCh).dataTypeIndex == CondIdxs)
                         idxs(kk) = iCh;
-                        kk=kk+1;
+                        kk = kk+1;
                         break;
                     end
                 end

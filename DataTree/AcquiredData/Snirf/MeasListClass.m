@@ -98,7 +98,7 @@ classdef MeasListClass < FileLoadSaveClass
                 location = ['/',location];
             end
             
-            % Error checking            
+            % Error checking
             if ~isempty(fileobj) && ischar(fileobj)
                 obj.SetFilename(fileobj);
             elseif isempty(fileobj)
@@ -112,6 +112,12 @@ classdef MeasListClass < FileLoadSaveClass
             try
                 % Open group
                 [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, 'measurementList field can''t be loaded');
+                        return 
+                    end
+                end
                 
                 % Load datasets
                 obj.sourceIndex     = HDF5_DatasetLoad(gid, 'sourceIndex');
@@ -126,22 +132,19 @@ classdef MeasListClass < FileLoadSaveClass
                 obj.moduleIndex     = HDF5_DatasetLoad(gid, 'moduleIndex');
                 
                 HDF5_GroupClose(fileobj, gid, fid);
+                
             catch
-                err = -1;
-                return
+                
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, 'measurementList field can''t be loaded');
+                        return 
+                    end
+                end
+                
             end
             
-            if obj.IsEmpty()
-                err = -1;
-            end
-            if obj.sourceIndex<1
-                err = -1;
-            end
-            if obj.detectorIndex<1
-                err = -1;
-            end
-
-            obj.SetError(err);
+            err = obj.ErrorCheck();
         end
 
         
@@ -252,6 +255,35 @@ classdef MeasListClass < FileLoadSaveClass
         end
 
         
+        % ----------------------------------------------------------------------------------
+        function err = ErrorCheck(obj)
+            err = 0;            
+            % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
+            if length(obj.sourceIndex)~=1 || obj.sourceIndex<1
+                err = obj.SetError(-4, 'measurementList.sourceIndex bad value');
+            end
+            if length(obj.detectorIndex)~=1 || obj.detectorIndex<1
+                err = obj.SetError(-5, 'measurementList.detectorIndex bad value');
+            end
+            if length(obj.wavelengthIndex)~=1 || obj.wavelengthIndex<1
+                err = obj.SetError(-6, 'measurementList.wavelengthIndex bad value');
+            end
+            if length(obj.dataType)~=1
+                err = obj.SetError(-7, 'measurementList.dataType bad value');
+            end
+            if ~ischar(obj.dataTypeLabel)
+                err = obj.SetError(-8, 'measurementList.dataTypeLabel is bad');
+            end
+            if length(obj.sourcePower)~=1
+                err = obj.SetError(-9, 'measurementList.sourcePower bad value');
+            end
+            if length(obj.detectorGain)~=1
+                err = obj.SetError(-10, 'measurementList.detectorGain bad value');
+            end
+        end
+        
+
+
         % -------------------------------------------------------
         function B = eq(obj, obj2)
             B = false;       

@@ -645,6 +645,9 @@ idx = get(hObject, 'value');
 msg = sprintf('%s:  %s', maingui.dataTree.filesErr(idx).filename, ...
     maingui.dataTree.filesErr(idx).GetErrorMsg());
 fprintf('%s\n', msg);
+if isempty(maingui.handles)
+    maingui.handles.msgbox = [];
+end
 if ishandle(maingui.handles.msgbox)
     delete(maingui.handles.msgbox);
 end

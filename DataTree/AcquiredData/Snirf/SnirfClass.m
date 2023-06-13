@@ -1,4 +1,4 @@
-classdef SnirfClass < AcqDataClass & FileLoadSaveClass
+classdef SnirfClass < AcqDataClass
     
     properties
         formatVersion
@@ -80,7 +80,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             obj.location = '/nirs';
             obj.nirsdatanum = 1;
             obj.hFig = [-1; -1];
-            
+
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Between 1 and 4 arguments covers the following syntax variants
@@ -134,10 +134,10 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     end
                     
                     
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    % obj = SnirfClass(dotnirs);
-                    % obj = SnirfClass(dotnirs, numdatabllocks);
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % obj = SnirfClass(dotnirs);
+                % obj = SnirfClass(dotnirs, numdatabllocks);
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 elseif NirsClass(varargin{1}).IsValid()
                     
                     % obj = SnirfClass(dotnirs);
@@ -154,7 +154,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     for ii = 1:length(tfactors)
                         obj.data(ii) = DataClass(obj.nirs_tb(ii).d, obj.nirs_tb(ii).t(:), obj.nirs_tb(ii).SD.MeasList);
                     end
-                    obj.probe       = ProbeClass(dotnirs.SD);
+                    obj.probe       = ProbeClass(dotnirs.SD);                    
                     obj.metaDataTags.SetLengthUnit(dotnirs.SD.SpatialUnit);
                     
                     % Optional fields
@@ -174,24 +174,24 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     end
                     
                     % Add required field metadatatags that has no .nirs
-                    % equivalent
+                    % equivalent 
                     obj.metaDataTags   = MetaDataTagsClass('', dotnirs.SD.SpatialUnit);
                     
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    % obj = SnirfClass(SD);
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % obj = SnirfClass(SD);
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 elseif NirsClass(varargin{1}).IsProbeValid()
                     
                     n = NirsClass(varargin{1});
                     obj.probe = ProbeClass(n.SD);
-                    obj.data = DataClass(n.SD);
+                    obj.data = DataClass(n.SD);                    
                     obj.metaDataTags   = MetaDataTagsClass('', n.SD.SpatialUnit);
-                    
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    % obj = SnirfClass(data, stim);
-                    % obj = SnirfClass(data, stim, probe);
-                    % obj = SnirfClass(data, stim, probe, aux);
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                        
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % obj = SnirfClass(data, stim);
+                % obj = SnirfClass(data, stim, probe);
+                % obj = SnirfClass(data, stim, probe, aux);
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 elseif isa(varargin{1}, 'DataClass')
                     
                     % obj = SnirfClass(data, stim);
@@ -214,12 +214,12 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     
                 end
                 
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % Between 5 and 6 arguments covers the following syntax variants
-                %
-                % obj = SnirfClass(d, t, SD, aux, s);
-                % obj = SnirfClass(d, t, SD, aux, s, CondNames);
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Between 5 and 6 arguments covers the following syntax variants
+            %
+            % obj = SnirfClass(d, t, SD, aux, s);
+            % obj = SnirfClass(d, t, SD, aux, s, CondNames);
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             elseif nargin>4
                 
                 % obj = SnirfClass(d, t, SD, aux, s);
@@ -270,16 +270,16 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             obj.aux            = AuxClass().empty();
             
             % Initialize non-SNIRF variables
-            obj.stim0          = StimClass().empty();
+            obj.stim0          = StimClass().empty();            
         end
         
-        
+               
         
         % -------------------------------------------------------
         function err = Copy(obj, obj2)
-            err = 0;
+            err=0;
             if ~isa(obj2, 'SnirfClass')
-                err = 1;
+                err=1;
                 return;
             end
             if obj.Mismatch(obj2)
@@ -320,13 +320,13 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             % Copy mutable properties to new object instance;
             objnew.stim = CopyHandles(obj.stim);
             objnew.SortStims();
-            objnew.SetDataStorageScheme(obj.GetDataStorageScheme());
+            objnew.SetDataStorageScheme(obj.GetDataStorageScheme());            
         end
         
         
         
         % -------------------------------------------------------
-        function ReloadStim(obj, obj2)
+        function ReloadStim(obj, obj2)            
             if strcmpi(obj2.GetDataStorageScheme(), 'files')
                 obj2.LoadStim(obj2.GetFilename());
             end
@@ -368,9 +368,9 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             err = -1;
         end
     end
-    
-    
-    
+        
+        
+        
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %  Load methods for SNIRF fields
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -384,7 +384,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             formatVersionCurr = str2double(obj.formatVersion);
             if formatVersionFile < formatVersionCurr
                 obj.logger.Write(sprintf('Warning: Current SNIRF version is %0.1f. Cannot load older version (%0.1f) file. Backward compatibility not yet implemented ...\n', ...
-                                         formatVersionCurr, formatVersionFile));
+                    formatVersionCurr, formatVersionFile));
                 err = -2;
                 return
             end
@@ -427,13 +427,9 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 if err == -1
                     obj.data(ii).delete();
                     obj.data(ii) = [];
-                    if err == -1
-                        err = 0;
-                    end
+                    err = 0;
                     break;
                 elseif err < -1
-                    break
-                elseif err > 0
                     break
                 end
                 ii = ii+1;
@@ -452,9 +448,6 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             err = 0;
             
             if obj.LoadStimOverride(obj.GetFilename())
-                %                 if obj.GetError()<0
-                %                     err = -1;
-                %                 end
                 return
             end
             
@@ -466,10 +459,13 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     obj.stim(ii) = StimClass;
                 end
                 err = obj.stim(ii).LoadHdf5(fileobj, [obj.location, '/stim', num2str(ii)]);
-                if err ~= 0
+                if err == -1
                     obj.stim(ii).delete();
                     obj.stim(ii) = [];
+                    err = 0;
                     break;
+                elseif err < 0
+                    break;                    
                 else
                     for kk = 1:ii-1
                         if strcmp(obj.stim(kk).name, obj.stim(ii).name)
@@ -510,16 +506,11 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             if isempty(obj.metaDataTags)
                 obj.LoadMetaDataTags(fileobj);
             end
-            
+                
             % get lenth unit through class method
             LengthUnit = obj.metaDataTags.Get('LengthUnit');
             obj.probe = ProbeClass();
-            err = obj.probe.LoadHdf5(fileobj, [obj.location, '/probe'], LengthUnit);
-            
-            % This is a required field. If it's empty means the whole snirf object is bad
-            if isempty(obj.probe)
-                err = obj.SetError();
-            end
+            err = obj.probe.LoadHdf5(fileobj, [obj.location, '/probe'], LengthUnit);            
         end
         
         
@@ -533,10 +524,11 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     obj.aux(ii) = AuxClass;
                 end
                 err = obj.aux(ii).LoadHdf5(fileobj, [obj.location, '/aux', num2str(ii)]);
-                if err ~= 0
+                if err == -1
                     obj.aux(ii).delete();
                     obj.aux(ii) = [];
-                    break;
+                    err = 0;
+                    break;                
                 end
                 ii = ii+1;
             end
@@ -560,7 +552,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 fileobj = obj.GetFilename();
             end
             if isempty(fileobj)
-                obj.SetError(-1, 'Snirf: file object is empty')
+                obj.SetError(0, sprintf('Snirf: file %s does not exist', fileobj))
                 return;
             end
             
@@ -577,57 +569,57 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 
                 % Open group
                 [obj.gid, obj.fid] = HDF5_GroupOpen(fileobj, '/');
-                
+                                
                 if obj.SetLocation() < 0
                     obj.SetError(-2, 'Snirf: Could not set HDF5 group location')
                 end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 % NOTE: Optional fields have positive error codes if they are
-                % missing, but negative error codes if they're not missing but
+                % missing, but negative error codes if they're not missing but 
                 % invalid
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
                 %%%% Load formatVersion
                 if obj.LoadFormatVersion() 
-                    obj.SetError(-3, 'snirf.formatVersion error')
+                    obj.SetError(-3, 'nirs.formatVersion error');
                 end
-                
+
                 %%%% Load metaDataTags
                 if obj.LoadMetaDataTags(obj.fid) < 0
-                    % Here a positive return value means that invalid data meta tags
+                    % Here a positive return value means that invalid data meta tags 
                     % should NOT be a show stopper if we can help it, if the rest of the data 
                     % is valid. So just let user know they're invalid with a warning.
-                    obj.SetError(4, 'snirf.metaDataTags warning')
+                    obj.SetError(4, 'nirs.metaDataTags warning');
                 end
-                
+
                 %%%% Load data
                 errtmp = obj.LoadData(obj.fid);
                 if errtmp < 0
-                    obj.SetError(-5, 'snirf.data error')
+                    obj.SetError(-5, 'nirs.data error');
                 elseif errtmp > 0
-                    obj.SetError(5, 'snirf.data warning')
+                    obj.SetError(5, 'nirs.data warning');
                 end
-                
+
                 %%%% Load stim
                 if obj.LoadStim(obj.fid) < 0
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    obj.SetError(6, 'snirf.stim error')
+                    obj.SetError(6, 'nirs.stim warning');
                 end
-                
+
                 %%%% Load probe
                 if obj.LoadProbe(obj.fid) < 0
-                    obj.SetError(-7, 'snirf.stim error')
+                    obj.SetError(-7, 'nirs.probe error');
                 end
-                
+
                 %%%% Load aux. This is an optional field
                 if obj.LoadAux(obj.fid) < 0
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    obj.SetError(8, 'snirf.aux error')
+                    obj.SetError(8, 'nirs.aux error');
                 end
                 
                 % Close group
@@ -635,7 +627,11 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 
             catch
                 
-                obj.SetError(-9, 'snirf unidentified error')
+                if isempty(obj.fid) || isempty(obj.gid)
+                    obj.SetError(0, 'snirf error: not an HDF5 file format');
+                elseif isempty(obj.fid) || isempty(obj.gid)
+                    obj.SetError(-10, 'snirf error: unidentified error');
+                end
                 
             end
             
@@ -647,8 +643,8 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             
         end
     end
-    
-    
+
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %  Save methods for SNIRF fields
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -661,7 +657,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             end
         end
         
-        
+                
         % -------------------------------------------------------
         function SaveData(obj, fileobj)
             for ii = 1:length(obj.data)
@@ -699,7 +695,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             end
         end
         
-        
+                
         % -------------------------------------------------------
         function err = SaveHdf5(obj, fileobj, ~)
             err = 0;
@@ -713,7 +709,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             if exist(fileobj, 'file')
                 delete(fileobj);
             end
-            
+
             % Convert file object to HDF5 file descriptor
             obj.fid = HDF5_GetFileDescriptor(fileobj);
             if obj.fid < 0
@@ -760,64 +756,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
         
     end
     
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %  Error validation methods
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    methods
         
-        % -------------------------------------------------------
-        function [err, errmsgs] = GetError(obj)
-            err = obj.err;
-            errmsgs = obj.errmsgs;
-        end
-                   
-        
-        % -------------------------------------------------------
-        function [err, errmsgs] = GetError2(obj)
-            err = [0,0,0,0,0];
-            errmsgs = {};
-            if isempty(obj)
-                return;
-            end
-            [err(1), errmsgs{1,1}] = obj.probe.GetError();
-            if ~isempty(errmsgs{1,1})
-                obj.SetError(-2, errmsgs{1,1})
-            end
-            for ii = 1:length(obj.data)
-                [err(2), errmsgs{2,1}] = obj.data(ii).GetError();
-                if ~isempty(errmsgs{2,1})
-                    obj.SetError(-3, errmsgs{2,1})
-                end
-            end
-            for ii = 1:length(obj.stim)
-                [err(3), errmsgs{3,1}] = obj.stim(ii).GetError();
-                if ~isempty(errmsgs{3,1})
-                    obj.SetError(-4, errmsgs{3,1})
-                end
-            end
-            for ii = 1:length(obj.aux)
-                [err(4), errmsgs{4,1}] = obj.aux(ii).GetError();
-                if ~isempty(errmsgs{4,1})
-                    obj.SetError(-5, errmsgs{4,1})
-                end
-            end
-            [err(5), errmsgs{5,1}] = obj.metaDataTags.GetError();
-            if ~isempty(errmsgs{5,1})
-                obj.SetError(-6, errmsgs{5,1})
-            end
-            
-            errTotal = 0;
-            b = (err == 0);
-            for ii = 1:length(b)
-                errTotal = errTotal + b(ii)*2^(ii-1);
-            end
-            err = errTotal;
-        end
-        
-    end
-    
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %  Misc stim related methods
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -866,11 +805,11 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             for ii = 1:length(obj2.stim)
                 obj.stim(ii) = StimClass(obj2.stim(ii));
             end
-        end
+        end        
         
         
         % -------------------------------------------------------
-        function changes = StimChangesMade(obj)
+        function changes = StimChangesMade(obj)                        
             % Load stims from file
             snirf = SnirfClass();
             snirf.SetFilename(obj.GetFilename())
@@ -915,8 +854,8 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
         
     end
     
-    
-    
+        
+        
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %  Equality methods for comparing to other SnirfClass objects
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -989,7 +928,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     end
                 end
                 if flag==false
-                    % If obj condition was NOT found in obj2 BUT it is empty (no data), then we don't
+                    % If obj condition was NOT found in obj2 BUT it is empty (no data), then we don't 
                     % count that as a unequal criteria, that is, obj and obj2 are still considered equal
                     if ~obj.stim(ii).IsEmpty()
                         return;
@@ -1005,7 +944,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                     end
                 end
                 if flag==false
-                    % If obj2 condition was NOT found in obj BUT it is empty (no data), then we don't
+                    % If obj2 condition was NOT found in obj BUT it is empty (no data), then we don't 
                     % count that as a unequal criteria, that is, obj and obj2 are still considered equal
                     if ~obj2.stim(ii).IsEmpty()
                         return;
@@ -1147,7 +1086,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
         % ---------------------------------------------------------
         function bbox = GetSdgBbox(obj)
             bbox = obj.probe.GetSdgBbox();
-        end
+        end                
         
     end
     
@@ -1188,7 +1127,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 return;
             end
             ml = obj.data(iBlk).GetMeasurementList(matrixMode);
-            if freememory
+            if freememory 
                 obj.FreeMemory(obj.GetFilename());
             end
         end
@@ -1215,7 +1154,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
         
         
         % ---------------------------------------------------------
-        function [datamat, p, Nmin] = GetAuxDataMatrix(obj, obj2)
+        function [datamat, p, Nmin] = GetAuxDataMatrix(obj, obj2)            
             datamat = [];
             p = 0;
             Nmin = 0;
@@ -1224,7 +1163,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 return;
             end
             if ~exist('obj2','var')
-                obj2 = obj.data(1);
+                obj2 = obj.data(1);            
             end
             
             datamat = zeros(size(obj2.dataTimeSeries,1), length(obj.aux));
@@ -1361,7 +1300,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             end
             
             % Bug fix: unique with no arguments changes the order by
-            % sorting. Here order should be preserved or else we have problems.
+            % sorting. Here order should be preserved or else we have problems. 
             % Add the 'stable' argument to preseerve order. JD, Nov 1, 2022
             CondNamesLocal = unique({obj.stim.name}, 'stable');
             stimnew = StimClass().empty;
@@ -1617,7 +1556,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 obj.stim(i).AddStimColumn(name, initValue);
             end
         end
-        
+
         
         % ----------------------------------------------------------------------------------
         function DeleteStimColumn(obj, idx)
@@ -1898,8 +1837,8 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             ml = obj.data(1).GetMeasListSrcDetPairs();
             d1 = zeros(size(ml,1),1);
             for ii = 1:length(d1)
-                d1(ii) = dist3(obj.probe.sourcePos2D(ml(ii,1),:), obj.probe.detectorPos2D(ml(ii,2),:));
-                d2(ii) = dist3(obj.probe.sourcePos3D(ml(ii,1),:), obj.probe.detectorPos3D(ml(ii,2),:));
+                d1(ii) = dist3(obj.probe.sourcePos2D(ml(ii,1),:), obj.probe.detectorPos2D(ml(ii,2),:)); 
+                d2(ii) = dist3(obj.probe.sourcePos3D(ml(ii,1),:), obj.probe.detectorPos3D(ml(ii,2),:)); 
             end
             md2d = mean(d1);
             md3d = mean(d2);
@@ -1912,7 +1851,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             err = 0;
             msg = [];
             [md2d, md3d] = obj.GetChannelsMeanDistance();
-            LengthUnitDeclared = obj.metaDataTags.GetLengthUnit();
+            LengthUnitDeclared = obj.metaDataTags.GetLengthUnit();            
             magnitudeMm = log10(30);
             magnitudeCm = log10(3);
             magnitudeM  = log10(.03);
@@ -1961,9 +1900,9 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 MenuBox(msg);
             end
         end
-        
-        
-        
+
+
+
         % ----------------------------------------------------------------------------------
         function hAxes = GenerateStandaloneAxes(obj, datatype, iChs)
             k = find(obj.hFig(1,:)==-1);
@@ -1976,21 +1915,21 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             set(obj.hFig(1,k(1)), 'name',plotname, 'menubar','none', 'NumberTitle','off', 'position',[p1(1)/2, p1(2), p1(3)+namesize, p1(4)]);
             obj.hFig(:,k(1)+1) = -1;
         end
+           
         
-        
-        
+            
         % ----------------------------------------------------------------------------------
         function Plot(obj, sdPairs, iBlk)
             %
             % SYNTAX:
             %   TreeNodeClass.Plot(iChs, iBlk)
-            %
+            % 
             %
             % DESCRIPTION:
             %   Plot data from channels specified by 2d array where each row spoecifying a single channel
-            %   contains indices [source, detector, condition, wavelength]. In addtion to the data, this method
-            %   plots any existing stims, and the probe associated with the SNIRF object from which the data
-            %   was taken. NOTE: the args iBlk and hAxes can be ommitted and will default to 1 and current
+            %   contains indices [source, detector, condition, wavelength]. In addtion to the data, this method 
+            %   plots any existing stims, and the probe associated with the SNIRF object from which the data 
+            %   was taken. NOTE: the args iBlk and hAxes can be ommitted and will default to 1 and current 
             %   axes respectively.
             %
             %
@@ -1998,9 +1937,9 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             %   sdPairs - 2d array of channel indices where each row represents a channel consisting of the indices
             %             [source, detector, condition, datatype]
             %
-            %   iBlk - Optional argument (defaults = 1). In theory SNIRF data field is an array of data blocks. This argunment selects the
+            %   iBlk - Optional argument (defaults = 1). In theory SNIRF data field is an array of data blocks. This argunment selects the 
             %          data block from which the plot data is taken.
-            %
+            %   
             %   hAxes - Optional argument (default is current axes or gca()), specifying the axes handle of the axes in which to plot the data.
             %
             %
@@ -2012,7 +1951,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             if ~exist('iBlk','var') || isempty(iBlk)
                 iBlk = 1;
             end
-            
+
             
             % Convert channels in the form of a list of sd pairs to a column vector of indices into the measurement list
             iChs = obj.SdPairIdxs2vectorIdxs(sdPairs, iBlk);
@@ -2030,19 +1969,19 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             end
             
             
-            % Set up standalone figure with axes for plotting data, if axes handle was not passed down from caller
-            % in the last arg. There will be a separate figure displaying the probe associated with this data plot.
+            % Set up standalone figure with axes for plotting data, if axes handle was not passed down from caller 
+            % in the last arg. There will be a separate figure displaying the probe associated with this data plot. 
             % a few lines down in DisplayProbe.
-            hAxes = obj.GenerateStandaloneAxes('HRF', iChs);
-            
+            hAxes = obj.GenerateStandaloneAxes('HRF', iChs);            
+                        
             % Plot data
             hold on
             chSelect = [];
             for ii = 1:length(iChs)
                 hdata(ii) = plot(hAxes, t, d(:,iChs(ii)), 'linewidth',2);
-                chSelect(ii,:) = [ml(iChs(ii),1), ml(iChs(ii),2), ml(iChs(ii),3), ml(iChs(ii),4), get(hdata(ii), 'color')];
+                chSelect(ii,:) = [ml(iChs(ii),1), ml(iChs(ii),2), ml(iChs(ii),3), ml(iChs(ii),4), get(hdata(ii), 'color')]; 
             end
-            set(hAxes, 'xlim', [t(1), t(end)]);
+            set(hAxes, 'xlim', [t(1), t(end)]);                        
             
             % Display probe in separate figure
             if isempty(chSelect)
@@ -2065,7 +2004,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             iChs = [];
             if ~exist('sdPairs','var')
                 sdPairs = [1,1,0,1];
-            end
+            end            
             if ~exist('iBlk','var') || isempty(iBlk)
                 iBlk = 1;
             end
@@ -2077,13 +2016,13 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             end
             
             
-            % If sdPairs argument is a column vector then we are done because channels are
-            % already specified in the output format i.e., as single number indices.
+            % If sdPairs argument is a column vector then we are done because channels are 
+            % already specified in the output format i.e., as single number indices. 
             if size(sdPairs, 2)==1
                 iChs = sdPairs;
                 return;
-            end
-            
+            end            
+                        
             ml = obj.data(1).GetMeasurementList('matrix', iBlk);
             
             % Error checking
@@ -2106,13 +2045,13 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
         function sdPairs = VectorIdxs2SdPairIdxs(obj, iChs, iBlk)
             if ~exist('iChs','var')
                 iChs = 1;
-            end
+            end            
             if ~exist('iBlk','var') || isempty(iBlk)
                 iBlk = 1;
             end
             
-            % If sdPairs argument is not a column vector then we are done;  because the
-            % channels are already specified in the output format i.e., as a 2d array.
+            % If sdPairs argument is not a column vector then we are done;  because the 
+            % channels are already specified in the output format i.e., as a 2d array. 
             if size(iChs, 2)>1
                 sdPairs = iChs;
                 return;
@@ -2135,7 +2074,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             if ~exist('chSelect','var')
                 chSelect = [];
             end
-            if ~exist('chSelectColors','var')
+            if ~exist('chSelectColors','var')                
                 chSelectColors = repmat([1.0, 0.5, 0.2], size(chSelect,1),1);
             end
             if ~exist('hAxes','var')
@@ -2144,7 +2083,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             
             % If chSelect is in the form of a column vector rather than sd pairs
             % then convert to sd pairs
-            chSelect = obj.VectorIdxs2SdPairIdxs(chSelect);
+            chSelect = obj.VectorIdxs2SdPairIdxs(chSelect);            
             
             freememoryflag = false;
             if ~isempty(obj) && obj.IsEmpty()
@@ -2166,7 +2105,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
                 obj.hFig(2,k(1)) = figure('menubar','none', 'NumberTitle','off', 'name',plotname);
                 hAxes = gca;
             end
-            
+
             axis(hAxes, [bbox(1), bbox(2), bbox(3), bbox(4)]);
             gridsize = get(hAxes, {'xlim', 'ylim', 'zlim'});
             if ismac() || islinux()
@@ -2174,7 +2113,7 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             else
                 fs = 11;
             end
-            
+
             % Get probe paramaters
             probe = obj.GetProbe();
             srcpos = probe.sourcePos2D;
@@ -2211,11 +2150,11 @@ classdef SnirfClass < AcqDataClass & FileLoadSaveClass
             
             if freememoryflag
                 obj.FreeMemory();
-            end
-        end
+            end            
+        end        
         
         
-        
+
     end
     
     

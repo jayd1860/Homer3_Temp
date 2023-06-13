@@ -1,6 +1,6 @@
 classdef FileLoadSaveClass < matlab.mixin.Copyable
     
-    properties (Access = public)
+    properties (Access = private)
         filename;
         fileformat;
         supportedFomats;
@@ -148,7 +148,12 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
             if ~exist('errmsg','var')
                 errmsg = '';
             end
-            obj.err = bitor(obj.err, 2^abs(err0));
+            if (err0 <= 0) || (obj.err < 0)
+                k = -1;
+            else
+                k = 1;
+            end
+            obj.err = k * bitor(abs(obj.err), 2^abs(err0));
             if isempty(errmsg)
                 return
             end
@@ -158,18 +163,40 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
         
         
         % -------------------------------------------------------
-        function [err, errmsg] = GetError(obj)
+        function [err, errmsgs] = GetError(obj)
             err = 0;
-            errmsg = '';
+            errmsgs = '';
             if isempty(obj)
                 return
             end
             if isempty(obj.errmsgs)
                 return
             end
-            err = -1 * obj.err;
-            for ii = 1:length(obj.errmsgs)
-                errmsg = sprintf('%s%s\n',obj.errmsgs{ii});
+            err = obj.err;
+            errmsgs = obj.errmsgs;
+        end
+        
+        
+        % ----------------------------------------------------------------------------------
+        function errmsg = GetErrorMsg(obj)
+            errmsg = '';
+            [~, errmsgs] = obj.GetError();
+            kk = 1;
+            for ii = 1:length(errmsgs)
+                if isempty(errmsgs{ii})
+                    continue
+                end
+                if length(errmsgs)==1
+                    numStr = sprintf('  ');
+                else
+                    numStr = sprintf('%d)', kk);
+                end
+                if isempty(errmsg)
+                    errmsg = sprintf('%s %s%s;  ', numStr, errmsg, errmsgs{ii});
+                else
+                    errmsg = sprintf('%s %s %s;  ', errmsg, numStr, errmsgs{ii});
+                end
+                kk = kk+1;
             end
         end
         

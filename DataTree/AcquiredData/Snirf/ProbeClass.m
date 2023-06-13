@@ -229,7 +229,6 @@ classdef ProbeClass < FileLoadSaveClass
         
         % -------------------------------------------------------
         function err = LoadHdf5(obj, fileobj, location, LengthUnit)
-            err = 0;
             
             % Arg 1
             if ~exist('fileobj','var') || (ischar(fileobj) && ~exist(fileobj,'file'))
@@ -268,6 +267,12 @@ classdef ProbeClass < FileLoadSaveClass
             try
                 % Open group
                 [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                if isstruct(gid)
+                    if gid.double < 0 
+                        err = obj.SetError(0, 'probe field can''t be loaded');
+                        return
+                    end
+                end
                 
                 % Load datasets
                 obj.wavelengths               = HDF5_DatasetLoad(gid, 'wavelengths');
@@ -292,9 +297,7 @@ classdef ProbeClass < FileLoadSaveClass
                 
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
-                
-                obj.ErrorCheck()
-                
+                                
             catch 
                 err = -1;
                 return;
@@ -318,7 +321,9 @@ classdef ProbeClass < FileLoadSaveClass
                     obj.detectorPos3D(:,3) = 0;
                 end
             end
-            obj.SetError(err); 
+                        
+            err = obj.ErrorCheck();
+            
         end
 
         
@@ -528,44 +533,44 @@ classdef ProbeClass < FileLoadSaveClass
         
         
         % ----------------------------------------------------------------------------------
-        function ErrorCheck(obj)
-            obj.IsValid();            
+        function err = ErrorCheck(obj)
+            obj.IsValid();
+            err = obj.GetError();
         end
         
 
         
         % ----------------------------------------------------------------------------------
         function b = IsValid(obj)
-            b = false;
             if obj.IsEmpty()
                 obj.SetError(-2, 'probe field is missing');
                 return;
             end
             if size(obj.sourcePos2D,2) < 2 || size(obj.sourcePos2D,2) > 3
-                obj.SetError(-3, sprintf('probe.sourcePos2D field has wrong number (%d) of coordinates', ...
+                obj.SetError(-3, sprintf('probe.sourcePos2D field has wrong number of coordinates (%d)', ...
                                      size(obj.sourcePos2D,2)));
             end
             if size(obj.sourcePos3D,2) ~= 3
-                obj.SetError(-4, sprintf('probe.sourcePos3D field has wrong number (%d) of coordinates', ...
+                obj.SetError(-4, sprintf('probe.sourcePos3D field has wrong number of coordinates (%d)', ...
                                      size(obj.sourcePos3D,2)));
-                end
+            end
             if size(obj.detectorPos2D,2) < 2 || size(obj.detectorPos2D,2) > 3
-                obj.SetError(-5, sprintf('probe.detectorPos2D field has wrong number (%d) of coordinates', ...
+                obj.SetError(-5, sprintf('probe.detectorPos2D field has wrong number of coordinates (%d)', ...
                                      size(obj.detectorPos2D,2)));
             end
             if size(obj.detectorPos3D,2) ~= 3
-                obj.SetError(-6, sprintf('probe.detectorPos3D field has wrong number (%d) of coordinates', ...
+                obj.SetError(-6, sprintf('probe.detectorPos3D field has wrong number of coordinates (%d)', ...
                                      size(obj.detectorPos3D,2)));
             end
             if ~isempty(obj.landmarkPos2D)
-            if size(obj.landmarkPos2D,2) < 2 || size(obj.landmarkPos2D,2) > 3
-                    obj.SetError(-7, sprintf('probe.landmarkPos2D field has wrong number (%d) of coordinates', ...
+                if size(obj.landmarkPos2D,2) < 2 || size(obj.landmarkPos2D,2) > 3
+                    obj.SetError(-7, sprintf('probe.landmarkPos2D field has wrong number of coordinates (%d)', ...
                         size(obj.landmarkPos2D,2)));
-            end
+                end
             end
             if ~isempty(obj.landmarkPos3D)
-            if size(obj.landmarkPos3D,2) ~= 3
-                    obj.SetError(-8, sprintf('probe.landmarkPos3D field has wrong number (%d) of coordinates', ...
+                if size(obj.landmarkPos3D,2) ~= 3
+                    obj.SetError(-8, sprintf('probe.landmarkPos3D field has wrong number of coordinates (%d)', ...
                         size(obj.landmarkPos3D,2)));
                 end
             end
@@ -573,7 +578,11 @@ classdef ProbeClass < FileLoadSaveClass
                 obj.SetError(-9, sprintf('Size of probe.landmarkLabels (%d) does NOT equal number of landmark positions (2D = %d, 3D = %d)', ...
                                      length(probe.landmarkLabels), size(obj.landmarkPos2D,1), size(obj.landmarkPos3D,1)));
             end
-            b = true;
+            if obj.GetError()<0
+                b = false;
+            elseif obj.GetError() == 0
+                b = true;
+            end
         end
         
         
