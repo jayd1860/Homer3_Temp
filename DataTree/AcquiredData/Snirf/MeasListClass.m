@@ -187,7 +187,7 @@ classdef MeasListClass < FileLoadSaveClass
             hdf5write_safe(fid, [location, '/detectorIndex'], uint64(obj.detectorIndex));
             hdf5write_safe(fid, [location, '/wavelengthIndex'], uint64(obj.wavelengthIndex));
             hdf5write_safe(fid, [location, '/wavelengthActual'], uint64(obj.wavelengthActual));
-            hdf5write_safe(fid, [location, '/wavelengthActualEmissionActual'], uint64(obj.wavelengthActualEmissionActual));
+            hdf5write_safe(fid, [location, '/wavelengthEmissionActual'], uint64(obj.wavelengthEmissionActual));
             hdf5write_safe(fid, [location, '/dataType'], uint64(obj.dataType));
             hdf5write_safe(fid, [location, '/dataUnit'], obj.dataUnit);
             hdf5write_safe(fid, [location, '/dataTypeLabel'], obj.dataTypeLabel);
