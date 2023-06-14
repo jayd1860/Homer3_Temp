@@ -574,7 +574,7 @@ classdef SnirfClass < AcqDataClass
                 [obj.gid, obj.fid] = HDF5_GroupOpen(fileobj, '/');
                                 
                 if obj.SetLocation() < 0
-                    obj.SetError(-2, 'ERROR: Missing nirs or nirs1 group field')
+                    obj.SetError(-2, ' Missing nirs or nirs1 group field')
                 end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -634,9 +634,9 @@ classdef SnirfClass < AcqDataClass
             catch
                 
                 if isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(0, 'snirf ERROR: not an HDF5 file format');
+                    obj.SetError(0, ' not an HDF5 file format');
                 elseif isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(-11, 'snirf ERROR: unidentified error');
+                    obj.SetError(-11, ' unidentified error');
                 end
                 
             end
