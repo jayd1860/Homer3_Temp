@@ -247,7 +247,6 @@ classdef AuxClass < FileLoadSaveClass
         
         % ----------------------------------------------------------------------------------
         function err = ErrorCheck(obj)
-            err = 0;
             if isempty(obj.name)
                 obj.SetError(-2, sprintf('aux.name field is empty'));
             end
@@ -263,6 +262,7 @@ classdef AuxClass < FileLoadSaveClass
             if ~ischar(obj.name)
                 obj.SetError(-6, sprintf('aux.name field is empty'));
             end
+            err = obj.GetError();
         end
         
         

@@ -156,11 +156,13 @@ classdef DataClass < FileLoadSaveClass
                     if ii > length(obj.measurementList)
                         obj.measurementList(ii) = MeasListClass;
                     end
-                    err = obj.measurementList(ii).LoadHdf5(fileobj, [location, '/measurementList', num2str(ii)]);
-                    if  err == -1
+                    errtmp = obj.measurementList(ii).LoadHdf5(fileobj, [location, '/measurementList', num2str(ii)]);
+                    if  errtmp == -1
                         obj.measurementList(ii).delete();
                         obj.measurementList(ii) = [];
-                        err = 0;
+                        break
+                    elseif errtmp < 0
+                        err = obj.SetError(-2, 'data.measurementList ERROR');
                         break
                     end
                     ii = ii+1;
@@ -426,7 +428,7 @@ classdef DataClass < FileLoadSaveClass
             if isempty(matrixMode)
                 ml = obj.measurementList;
             elseif strncmp(matrixMode,'matrix',length('matrix'))
-                if ~isempty(obj.cache) && ~isempty(obj.cache.measurementListMatrix)
+                if ~isempty(obj.cache.measurementListMatrix)
                     if strcmp(matrixMode,'matrix')
                         ml = obj.cache.measurementListMatrix;
                         if strcmp(reshape, 'reshape')

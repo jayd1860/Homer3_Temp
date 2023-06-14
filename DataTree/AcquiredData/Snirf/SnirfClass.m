@@ -523,12 +523,15 @@ classdef SnirfClass < AcqDataClass
                 if ii > length(obj.aux)
                     obj.aux(ii) = AuxClass;
                 end
-                err = obj.aux(ii).LoadHdf5(fileobj, [obj.location, '/aux', num2str(ii)]);
-                if err == -1
+                errtmp = obj.aux(ii).LoadHdf5(fileobj, [obj.location, '/aux', num2str(ii)]);
+                if errtmp == -1
                     obj.aux(ii).delete();
                     obj.aux(ii) = [];
                     err = 0;
                     break;                
+                elseif errtmp < 0
+                    err = -1;
+                    break
                 end
                 ii = ii+1;
             end
@@ -571,7 +574,7 @@ classdef SnirfClass < AcqDataClass
                 [obj.gid, obj.fid] = HDF5_GroupOpen(fileobj, '/');
                                 
                 if obj.SetLocation() < 0
-                    obj.SetError(-2, 'ERROR: Missing /nirs group field')
+                    obj.SetError(-2, 'ERROR: Missing nirs or nirs1 group field')
                 end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -590,17 +593,15 @@ classdef SnirfClass < AcqDataClass
                     % Here a positive return value means that invalid data meta tags 
                     % should NOT be a show stopper if we can help it, if the rest of the data 
                     % is valid. So just let user know they're invalid with a warning.
-                    obj.SetError(4, 'nirs.metaDataTags WARNING');
+                    obj.SetError(4, 'nirs.metaDataTags WARNING - corrupt field');
                 end
 
                 %%%% Load data
                 errtmp = obj.LoadData(obj.fid);
                 if isempty(obj.data)
-                    obj.SetError(-5, 'nirs.data ERROR: missing or corrupt field');
+                    obj.SetError(-5, 'nirs.data ERROR - missing field');
                 elseif errtmp < 0
-                    obj.SetError(-5, 'nirs.data ERROR');
-                elseif errtmp > 0
-                    obj.SetError(5, 'nirs.data WARNING');
+                    obj.SetError(-6, 'nirs.data ERROR - corrupt field');
                 end
 
                 %%%% Load stim
@@ -608,17 +609,15 @@ classdef SnirfClass < AcqDataClass
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    obj.SetError(6, 'nirs.stim WARNING');
+                    obj.SetError(7, 'nirs.stim WARNING - corrupt field');
                 end
 
                 %%%% Load probe
                 errtmp = obj.LoadProbe(obj.fid);
                 if isempty(obj.probe)
-                    obj.SetError(-6, 'nirs.probe ERROR: missing or corrupt field');
+                    obj.SetError(-8, 'nirs.probe ERROR - missing field');
                 elseif errtmp < 0 
-                    obj.SetError(-7, 'nirs.probe ERROR');
-                elseif errtmp > 0
-                    obj.SetError(7, 'nirs.probe WARNING');
+                    obj.SetError(-9, 'nirs.probe ERROR - corrupt field');
                 end
 
                 %%%% Load aux. This is an optional field
@@ -626,7 +625,7 @@ classdef SnirfClass < AcqDataClass
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    obj.SetError(8, 'nirs.aux ERROR');
+                    obj.SetError(10, 'nirs.aux WARNING - corrupt field');
                 end
                 
                 % Close group
@@ -637,7 +636,7 @@ classdef SnirfClass < AcqDataClass
                 if isempty(obj.fid) || isempty(obj.gid)
                     obj.SetError(0, 'snirf ERROR: not an HDF5 file format');
                 elseif isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(-10, 'snirf ERROR: unidentified error');
+                    obj.SetError(-11, 'snirf ERROR: unidentified error');
                 end
                 
             end

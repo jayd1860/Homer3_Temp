@@ -105,7 +105,6 @@ classdef AcqDataClass < FileLoadSaveClass
         
         
         % -------------------------------------------------------
-        % -------------------------------------------------------
         function err = LoadBids(obj, fileobj)
             err = obj.LoadStimOverride(fileobj);
         end

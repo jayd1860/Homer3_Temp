@@ -84,8 +84,6 @@ classdef MeasListClass < FileLoadSaveClass
         
         % -------------------------------------------------------
         function err = LoadHdf5(obj, fileobj, location)
-            err = 0;
-            
             % Arg 1
             if ~exist('fileobj','var') || (ischar(fileobj) && ~exist(fileobj,'file'))
                 fileobj = '';
@@ -257,29 +255,29 @@ classdef MeasListClass < FileLoadSaveClass
         
         % ----------------------------------------------------------------------------------
         function err = ErrorCheck(obj)
-            err = 0;            
             % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
             if length(obj.sourceIndex)~=1 || obj.sourceIndex<1
-                err = obj.SetError(-4, 'measurementList.sourceIndex bad value');
+                obj.SetError(-4, 'measurementList.sourceIndex bad value');
             end
             if length(obj.detectorIndex)~=1 || obj.detectorIndex<1
-                err = obj.SetError(-5, 'measurementList.detectorIndex bad value');
+                obj.SetError(-5, 'measurementList.detectorIndex bad value');
             end
             if length(obj.wavelengthIndex)~=1 || obj.wavelengthIndex<1
-                err = obj.SetError(-6, 'measurementList.wavelengthIndex bad value');
+                obj.SetError(-6, 'measurementList.wavelengthIndex bad value');
             end
             if length(obj.dataType)~=1
-                err = obj.SetError(-7, 'measurementList.dataType bad value');
+                obj.SetError(-7, 'measurementList.dataType bad value');
             end
             if ~ischar(obj.dataTypeLabel)
-                err = obj.SetError(-8, 'measurementList.dataTypeLabel is bad');
+                obj.SetError(-8, 'measurementList.dataTypeLabel is bad');
             end
             if length(obj.sourcePower)~=1
-                err = obj.SetError(-9, 'measurementList.sourcePower bad value');
+                obj.SetError(-9, 'measurementList.sourcePower bad value');
             end
             if length(obj.detectorGain)~=1
-                err = obj.SetError(-10, 'measurementList.detectorGain bad value');
+                obj.SetError(-10, 'measurementList.detectorGain bad value');
             end
+            err = obj.GetError();
         end
         
 
