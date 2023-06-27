@@ -1,5 +1,10 @@
 classdef FileLoadSaveClass < matlab.mixin.Copyable
     
+    properties (Access = public)
+        location
+    end
+    
+    
     properties (Access = private)
         filename;
         fileformat;
@@ -23,6 +28,7 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
             obj.err = 0;
             obj.errmsgs = {};
             obj.dataStorageScheme = 'memory';
+            obj.location = '';
         end
         
         
@@ -180,23 +186,15 @@ classdef FileLoadSaveClass < matlab.mixin.Copyable
         % ----------------------------------------------------------------------------------
         function errmsg = GetErrorMsg(obj)
             errmsg = '';
-            [~, errmsgs] = obj.GetError();
-            kk = 1;
-            for ii = 1:length(errmsgs)
-                if isempty(errmsgs{ii})
+            for ii = 1:length(obj.errmsgs)
+                if isempty(obj.errmsgs{ii})
                     continue
                 end
-                if length(errmsgs)==1
-                    numStr = sprintf('  ');
-                else
-                    numStr = sprintf('%d)', kk);
-                end
                 if isempty(errmsg)
-                    errmsg = sprintf('%s %s%s;  ', numStr, errmsg, errmsgs{ii});
+                    errmsg = sprintf('%s\n', obj.errmsgs{ii});
                 else
-                    errmsg = sprintf('%s %s %s;  ', errmsg, numStr, errmsgs{ii});
+                    errmsg = sprintf('%s%s\n;  ', errmsg, obj.errmsgs{ii});
                 end
-                kk = kk+1;
             end
         end
         

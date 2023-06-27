@@ -101,9 +101,9 @@ classdef MeasListClass < FileLoadSaveClass
 
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                location = '/nirs/data1/measurementList1';
-            elseif location(1)~='/'
-                location = ['/',location];
+                obj.location = '/nirs/data1/measurementList1';
+            else
+                obj.location = location;
             end
             
             % Error checking
@@ -119,7 +119,7 @@ classdef MeasListClass < FileLoadSaveClass
 
             try
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
                 if isstruct(gid)
                     if gid.double < 0 
                         err = obj.SetError(0, 'measurementList field can''t be loaded');
@@ -186,17 +186,12 @@ classdef MeasListClass < FileLoadSaveClass
             hdf5write_safe(fid, [location, '/sourceIndex'], uint64(obj.sourceIndex));
             hdf5write_safe(fid, [location, '/detectorIndex'], uint64(obj.detectorIndex));
             hdf5write_safe(fid, [location, '/wavelengthIndex'], uint64(obj.wavelengthIndex));
-            hdf5write_safe(fid, [location, '/wavelengthActual'], uint64(obj.wavelengthActual));
-            hdf5write_safe(fid, [location, '/wavelengthEmissionActual'], uint64(obj.wavelengthEmissionActual));
             hdf5write_safe(fid, [location, '/dataType'], uint64(obj.dataType));
-            hdf5write_safe(fid, [location, '/dataUnit'], obj.dataUnit);
             hdf5write_safe(fid, [location, '/dataTypeLabel'], obj.dataTypeLabel);
             hdf5write_safe(fid, [location, '/dataTypeIndex'], uint64(obj.dataTypeIndex));
             hdf5write_safe(fid, [location, '/sourcePower'], obj.sourcePower);
             hdf5write_safe(fid, [location, '/detectorGain'], obj.detectorGain);
             hdf5write_safe(fid, [location, '/moduleIndex'], uint64(obj.moduleIndex));
-            hdf5write_safe(fid, [location, '/sourceModuleIndex'], uint64(obj.sourceModuleIndex));
-            hdf5write_safe(fid, [location, '/detectorModuleIndex'], uint64(obj.detectorModuleIndex));
         end
 
                 
@@ -276,19 +271,19 @@ classdef MeasListClass < FileLoadSaveClass
         function err = ErrorCheck(obj)
             % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
             if length(obj.sourceIndex)~=1 || obj.sourceIndex<1
-                obj.SetError(-4, 'measurementList.sourceIndex bad value');
+                obj.SetError(-4, sprintf('%s/sourceIndex:  bad value', obj.location));
             end
             if length(obj.detectorIndex)~=1 || obj.detectorIndex<1
-                obj.SetError(-5, 'measurementList.detectorIndex bad value');
+                obj.SetError(-5, sprintf('%s/detectorIndex:  bad value', obj.location));
             end
             if length(obj.wavelengthIndex)~=1 || obj.wavelengthIndex<1
-                obj.SetError(-6, 'measurementList.wavelengthIndex bad value');
+                obj.SetError(-6, sprintf('%s/wavelengthIndex:  bad value', obj.location));
             end
             if length(obj.dataType)~=1
-                obj.SetError(-7, 'measurementList.dataType bad value');
+                obj.SetError(-7, sprintf('%s/dataType:  bad value', obj.location));
             end
             if ~ischar(obj.dataTypeLabel)
-                obj.SetError(-8, 'measurementList.dataTypeLabel is bad');
+                obj.SetError(-8, sprintf('%s/dataTypeLabel:  is bad', obj.location));
             end
             err = obj.GetError();
         end

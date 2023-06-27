@@ -51,9 +51,9 @@ classdef AuxClass < FileLoadSaveClass
             
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                location = '/nirs/aux1';
-            elseif location(1)~='/'
-                location = ['/',location];
+                obj.location = '/nirs/aux1';
+            else
+                obj.location = location;
             end
             
             % Error checking for file existence
@@ -70,12 +70,12 @@ classdef AuxClass < FileLoadSaveClass
             %%%%%%%%%%%% Ready to load from file
             try               
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
                 
                 % Absence of optional aux field raises error > 0
                 if isstruct(gid)
                     if gid.double < 0 
-                        err = obj.SetError(0, sprintf('aux field %s field can''t be loaded', location));
+                        err = obj.SetError(0, sprintf('aux field %s field can''t be loaded', obj.location));
                         return 
                     end
                 end
@@ -104,10 +104,10 @@ classdef AuxClass < FileLoadSaveClass
                 
                 if isstruct(gid)
                     if gid.double < 0 
-                        obj.SetError(0, sprintf('aux field %s field can''t be loaded', location));
+                        obj.SetError(0, sprintf('aux field %s field can''t be loaded', obj.location));
                     end
                 else
-                    obj.SetError(-7, sprintf('aux field %s field can''t be loaded', location));
+                    obj.SetError(-7, sprintf('aux field %s field can''t be loaded', obj.location));
                 end
                 
             end
@@ -125,7 +125,7 @@ classdef AuxClass < FileLoadSaveClass
             if ~exist('fileobj', 'var') || isempty(fileobj)
                 error('Unable to save file. No file name given.')
             end
-            
+                        
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
                 location = '/nirs/aux1';
@@ -248,19 +248,19 @@ classdef AuxClass < FileLoadSaveClass
         % ----------------------------------------------------------------------------------
         function err = ErrorCheck(obj)
             if isempty(obj.name)
-                obj.SetError(-2, sprintf('aux.name field is empty'));
+                obj.SetError(-2, sprintf('%s:  field is empty', [obj.location, '/name']));
             end
             if isempty(obj.dataTimeSeries)
-                obj.SetError(-3, sprintf('aux.dataTimeSeries field is empty'));
+                obj.SetError(-3, sprintf('%s:  field is empty', [obj.location, '/dataTimeSeries']));
             end
             if isempty(obj.time)
-                obj.SetError(-4, sprintf('aux.time field is empty'));
+                obj.SetError(-4, sprintf('%s:  field is empty', [obj.location, '/time']));
             end
             if length(obj.dataTimeSeries) ~= length(obj.time)
-                obj.SetError(-5, sprintf('aux.time size does not equal aux.dataTimeSeries'));
+                obj.SetError(-5, sprintf('%s:  size does not equal aux.dataTimeSeries', [obj.location, '/time']));
             end
             if ~ischar(obj.name)
-                obj.SetError(-6, sprintf('aux.name field is empty'));
+                obj.SetError(-6, sprintf('%s:  field is empty', [obj.location, '/name']));
             end
             err = obj.GetError();
         end

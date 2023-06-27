@@ -501,11 +501,11 @@ classdef DataFilesClass < handle
                 filename = [obj.rootdir, obj.files(ii).name]; %#ok<NASGU>
                 eval( sprintf('o = %s(filename);', constructor) );
                 if  o.GetError() < 0
-                    msg = sprintf('DataFilesClass.ErrorCheck - ERROR: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
+                    msg = sprintf('DataFilesClass.ErrorCheck - "%s" ERROR:\n%s\n', obj.files(ii).name, o.GetErrorMsg());
                     obj.LogError(msg, obj.files(ii));
                     errorIdxs = [errorIdxs, ii]; %#ok<AGROW>
                 elseif o.GetError() > 0
-                    obj.logger.Write('DataFilesClass.ErrorCheck - WARNING: In file  "%s"  %s. File will be added anyway.\n', obj.files(ii).name, o.GetErrorMsg());
+                    obj.logger.Write(sprintf('DataFilesClass.ErrorCheck - "%s" WARNING:\n%s\n', obj.files(ii).name, o.GetErrorMsg()));
                 end
                 if ~isempty(o.GetErrorMsg())
                     obj.files(ii).SetError(o.GetErrorMsg());

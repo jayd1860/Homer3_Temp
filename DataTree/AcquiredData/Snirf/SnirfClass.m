@@ -12,7 +12,6 @@ classdef SnirfClass < AcqDataClass
     properties (Access = private)
         fid
         gid
-        location
         nirsdatanum
         nirs_tb
         stim0
@@ -385,7 +384,7 @@ classdef SnirfClass < AcqDataClass
             if formatVersionFile < formatVersionCurr
                 obj.logger.Write(sprintf('Warning: Current SNIRF version is %0.1f. Cannot load older version (%0.1f) file. Backward compatibility not yet implemented ...\n', ...
                     formatVersionCurr, formatVersionFile));
-                err = -2;
+                err = -1;
                 return
             end
         end
@@ -408,7 +407,7 @@ classdef SnirfClass < AcqDataClass
             err = 0;
             if isempty(obj.data)
                 obj.data = DataClass();
-                err = obj.data.LoadTime(obj.GetFilename(), [obj.location, '/data1']);
+                err = obj.data.LoadTime(obj.GetFilename());
             end
         end
         
@@ -423,13 +422,13 @@ classdef SnirfClass < AcqDataClass
                     obj.data(ii) = DataClass;
                 end
                 
-                err = obj.data(ii).LoadHdf5(fileobj, [obj.location, '/data', num2str(ii)]);
-                if err == -1
+                errtmp = obj.data(ii).LoadHdf5(fileobj, [obj.location, '/data', num2str(ii)]);
+                if errtmp < 0
                     obj.data(ii).delete();
                     obj.data(ii) = [];
-                    err = 0;
                     break;
-                elseif err < -1
+                elseif errtmp ~= 0
+                    err = -1;
                     break
                 end
                 ii = ii+1;
@@ -458,26 +457,14 @@ classdef SnirfClass < AcqDataClass
                 if ii > length(obj.stim)
                     obj.stim(ii) = StimClass;
                 end
-                err = obj.stim(ii).LoadHdf5(fileobj, [obj.location, '/stim', num2str(ii)]);
-                if err == -1
+                errtmp = obj.stim(ii).LoadHdf5(fileobj, [obj.location, '/stim', num2str(ii)]);
+                if errtmp == -1
                     obj.stim(ii).delete();
                     obj.stim(ii) = [];
-                    err = 0;
                     break;
-                elseif err < 0
+                elseif errtmp ~= 0
+                    err = -1;
                     break;                    
-                else
-                    for kk = 1:ii-1
-                        if strcmp(obj.stim(kk).name, obj.stim(ii).name)
-                            obj.stim(ii).delete();
-                            obj.stim(ii) = [];
-                            err = err-6;
-                            break
-                        end
-                    end
-                    if err ~= 0
-                        break;
-                    end
                 end
                 ii = ii+1;
             end
@@ -488,10 +475,13 @@ classdef SnirfClass < AcqDataClass
                 if ii > length(obj.stim0)
                     obj.stim0(ii) = StimClass;
                 end
-                if obj.stim0(ii).LoadHdf5(fileobj, [obj.location, '/stim0', num2str(ii)]) ~= 0
+                errtmp = obj.stim0(ii).LoadHdf5(fileobj, [obj.location, '/stim0', num2str(ii)]);
+                if errtmp == -1
                     obj.stim0(ii).delete();
                     obj.stim0(ii) = [];
                     break;
+                elseif errtmp ~= 0
+                    break;                    
                 end
                 ii = ii+1;
             end
@@ -502,6 +492,7 @@ classdef SnirfClass < AcqDataClass
         
         % -------------------------------------------------------
         function err = LoadProbe(obj, fileobj, ~)
+            err = 0;
             % metaDataTags is a prerequisite for load probe, so check to make sure its already been loaded
             if isempty(obj.metaDataTags)
                 obj.LoadMetaDataTags(fileobj);
@@ -510,7 +501,9 @@ classdef SnirfClass < AcqDataClass
             % get lenth unit through class method
             LengthUnit = obj.metaDataTags.Get('LengthUnit');
             obj.probe = ProbeClass();
-            err = obj.probe.LoadHdf5(fileobj, [obj.location, '/probe'], LengthUnit);            
+            if obj.probe.LoadHdf5(fileobj, [obj.location, '/probe'], LengthUnit) < 0
+                err = -1;
+            end
         end
         
         
@@ -527,11 +520,9 @@ classdef SnirfClass < AcqDataClass
                 if errtmp == -1
                     obj.aux(ii).delete();
                     obj.aux(ii) = [];
-                    err = 0;
                     break;                
                 elseif errtmp < 0
                     err = -1;
-                    break
                 end
                 ii = ii+1;
             end
@@ -634,14 +625,14 @@ classdef SnirfClass < AcqDataClass
             catch
                 
                 if isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(0, ' not an HDF5 file format');
+                    obj.SetError(0, 'not an HDF5 file format');
                 elseif isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(-11, ' unidentified error');
+                    obj.SetError(-11, 'unidentified error');
                 end
                 
             end
             
-            if obj.fid > 0
+            if obj.fid.identifier > 0
                 H5F.close(obj.fid);
             end
             
@@ -1732,6 +1723,46 @@ classdef SnirfClass < AcqDataClass
                 return;
             end
             b = false;
+        end
+        
+        
+        % ----------------------------------------------------------------------------------
+        function errmsg = GetErrorMsg(obj)
+            errmsg = '';
+            errmsgs = {};
+            if obj.probe.GetError() ~= 0
+                errmsgs{end+1,1} = obj.probe.GetErrorMsg();
+            end
+            for ii = 1:length(obj.data)
+                if obj.data(ii).GetError() ~= 0
+                    errmsgs{end+1,1} = obj.data(ii).GetErrorMsg(); %#ok<*AGROW>
+                end
+            end
+            for ii = 1:length(obj.stim)
+                if obj.stim(ii).GetError() ~= 0
+                    errmsgs{end+1,1} = obj.stim(ii).GetErrorMsg();
+                end
+            end
+            for ii = 1:length(obj.aux)
+                if obj.aux(ii).GetError() ~= 0
+                    errmsgs{end+1,1} = obj.aux(ii).GetErrorMsg();
+                end
+            end            
+            if obj.metaDataTags.GetError() ~= 0
+                errmsgs{end+1} = obj.metaDataTags.GetErrorMsg();
+            end
+            
+            % Now consolidate all error messages into one output string (errmsg).
+            for ii = 1:length(errmsgs)
+                if isempty(errmsgs{ii})
+                    continue
+                end
+                if isempty(errmsg)
+                    errmsg = sprintf('%s', errmsgs{ii});
+                else
+                    errmsg = sprintf('%s%s', errmsg, errmsgs{ii});
+                end
+            end
         end
         
         

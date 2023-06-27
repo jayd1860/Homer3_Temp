@@ -85,9 +85,9 @@ classdef StimClass < FileLoadSaveClass
                         
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                location = '/nirs/stim1';
-            elseif location(1)~='/'
-                location = ['/',location];
+                obj.location = '/nirs/stim1';
+            else
+                obj.location = location;
             end
             
             % Error checking for file existence
@@ -104,7 +104,7 @@ classdef StimClass < FileLoadSaveClass
             try 
                 
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
                 if isstruct(gid)
                     if gid.double < 0 
                         err = obj.SetError(0, 'stim field can''t be loaded');
@@ -114,7 +114,7 @@ classdef StimClass < FileLoadSaveClass
                 
                 % Absence of optional stim field raises error > 0
                 if gid.double < 0
-                    err = obj.SetError(0, sprintf('%s does not exist', location));
+                    err = obj.SetError(0, sprintf('%s does not exist', obj.location));
                     return;
                 end
                 
@@ -137,7 +137,7 @@ classdef StimClass < FileLoadSaveClass
             catch
                 
                 if gid.double > 0
-                    obj.SetError(0, sprintf('%s does not exist', location));
+                    obj.SetError(0, sprintf('%s does not exist', obj.location));
                 else
                     err = 1;
                     return
@@ -287,16 +287,16 @@ classdef StimClass < FileLoadSaveClass
             
             % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
             if isempty(obj.name)
-                err = obj.SetError(-3, sprintf('stim.name is empty'));
+                err = obj.SetError(-3, sprintf('%s/name is empty', obj.location));
             end
             if ~ischar(obj.name)
-                err = obj.SetError(-4, sprintf('stim.name is empty'));
+                err = obj.SetError(-4, sprintf('%s/name is empty', obj.location));
             end
             if ~isempty(obj.data) && (size(obj.data,2)<3)
-                err = obj.SetError(-5, 'stim.data is NOT empty AND has less than 3 columns');
+                err = obj.SetError(-5, sprintf('%s/data is NOT empty AND has less than 3 columns', obj.location));
             end
             if ~isempty(obj.data) && (size(obj.data,2) ~= length(obj.dataLabels))
-                err = obj.SetError(-5, 'stim.data number of columns does not equal stim.dataLabels number of columns');
+                err = obj.SetError(-5, sprintf('%s/data number of columns does not equal stim.dataLabels number of columns', obj.location));
             end
         end
         
