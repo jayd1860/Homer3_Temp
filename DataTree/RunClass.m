@@ -41,7 +41,7 @@ classdef RunClass < TreeNodeClass
             end
             
             obj.LoadAcquiredData();
-            if obj.acquired.GetError()
+            if obj.acquired.Error()
                 obj = RunClass.empty();
                 return;
             end
@@ -56,12 +56,12 @@ classdef RunClass < TreeNodeClass
         
             
         % ----------------------------------------------------------------------------------
-        function b = GetError(obj)
+        function b = Error(obj)
             if isempty(obj)
                 b = -1;
                 return;
             end
-            b = obj.acquired.GetError();
+            b = obj.acquired.Error();
         end
         
         
@@ -111,10 +111,10 @@ classdef RunClass < TreeNodeClass
                 obj.acquired.Load([obj.path, obj.name]);
             end
             
-            if obj.acquired.GetError() < 0
+            if obj.acquired.Error() < 0
                 obj.logger.Write( sprintf('     **** Error: "%s" failed to load - %s\n', obj.name, obj.acquired.GetErrorMsg()) );
                 return;
-            elseif obj.acquired.GetError() > 0
+            elseif obj.acquired.Error() > 0
                 obj.logger.Write( sprintf('     **** Warning: %s in file "%s"\n', obj.acquired.GetErrorMsg(), obj.name) );
             else
                 %fprintf('    Loaded file %s to run.\n', obj.name);                

@@ -85,9 +85,9 @@ classdef StimClass < FileLoadSaveClass
                         
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                obj.location = '/nirs/stim1';
-            else
-                obj.location = location;
+                location = '/nirs/stim1';
+            elseif location(1)~='/'
+                location = ['/',location];
             end
             
             % Error checking for file existence
@@ -97,24 +97,18 @@ classdef StimClass < FileLoadSaveClass
                 fileobj = obj.GetFilename();
             end 
             if isempty(fileobj)
-                err = obj.SetError(-1, sprintf('%s does not exist', location));
-                return;
+               err = -1;
+               return;
             end
                
             try 
                 
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
-                if isstruct(gid)
-                    if gid.double < 0 
-                        err = obj.SetError(0, 'stim field can''t be loaded');
-                        return
-                    end
-                end
-                
-                % Absence of optional stim field raises error > 0
+                [gid, fid] = HDF5_GroupOpen(fileobj, location);
+
+                % Absence of optional aux field raises error > 0
                 if gid.double < 0
-                    err = obj.SetError(0, sprintf('%s does not exist', obj.location));
+                    err = 1;
                     return;
                 end
                 
@@ -128,6 +122,7 @@ classdef StimClass < FileLoadSaveClass
                 if isempty(obj.dataLabels)
                     obj.dataLabels = {'Onset', 'Duration', 'Amplitude'};
                 end
+                err = obj.ErrorCheck();
 
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
@@ -137,16 +132,13 @@ classdef StimClass < FileLoadSaveClass
             catch
                 
                 if gid.double > 0
-                    obj.SetError(0, sprintf('%s does not exist', obj.location));
+                    err = -2;
                 else
                     err = 1;
-                    return
                 end
                 
-            end
-            
-            err = obj.ErrorCheck();
-            
+            end            
+            obj.SetError(err); 
         end
         
         
@@ -287,16 +279,13 @@ classdef StimClass < FileLoadSaveClass
             
             % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
             if isempty(obj.name)
-                err = obj.SetError(-3, sprintf('%s/name is empty', obj.location));
+                err = -3;
             end
-            if ~ischar(obj.name)
-                err = obj.SetError(-4, sprintf('%s/name is empty', obj.location));
-            end
-            if ~isempty(obj.data) && (size(obj.data,2)<3)
-                err = obj.SetError(-5, sprintf('%s/data is NOT empty AND has less than 3 columns', obj.location));
-            end
-            if ~isempty(obj.data) && (size(obj.data,2) ~= length(obj.dataLabels))
-                err = obj.SetError(-5, sprintf('%s/data number of columns does not equal stim.dataLabels number of columns', obj.location));
+            if ~isempty(obj.data) && size(obj.data,2)<3
+                err = err-4;
+                if size(obj.data, 2) ~= length(obj.dataLabels)
+                    err = err-5;
+                end
             end
         end
         

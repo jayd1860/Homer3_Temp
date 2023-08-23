@@ -1,10 +1,13 @@
-classdef AcqDataClass < FileLoadSaveClass
+classdef AcqDataClass < matlab.mixin.Copyable
        
     properties (Access = public)
         bids
     end
     properties (Access = private)
         logger
+    end
+    properties (Access = protected)
+        errmsgs
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -100,6 +103,31 @@ classdef AcqDataClass < FileLoadSaveClass
         function Initialize(obj)
             global logger
             obj.logger = InitLogger(logger);
+        end
+        
+        
+        
+        % -------------------------------------------------------
+        function err = Error(obj)
+            err = obj.GetError();
+        end
+        
+        
+        
+        % ---------------------------------------------------------
+        function msg = GetErrorMsg(obj)
+            msg = '';
+            if isempty(obj)
+                msg = 'AcqDataClass object is empty';
+                return;
+            end
+            if isempty(obj.errmsgs)
+                return;
+            end
+            if ~obj.GetError()
+                return;
+            end
+            msg = obj.errmsgs{abs(obj.GetError())};
         end
         
         
@@ -306,7 +334,7 @@ classdef AcqDataClass < FileLoadSaveClass
             end
             fnameTsv = [filesepStandard(pname), fname(1:k-1), '_events.tsv'];
         end
-    
+                
     end
     
 end

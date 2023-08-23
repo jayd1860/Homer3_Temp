@@ -1,4 +1,4 @@
-classdef SnirfClass < AcqDataClass
+classdef SnirfClass < AcqDataClass & FileLoadSaveClass
     
     properties
         formatVersion
@@ -12,6 +12,7 @@ classdef SnirfClass < AcqDataClass
     properties (Access = private)
         fid
         gid
+        location
         nirsdatanum
         nirs_tb
         stim0
@@ -270,6 +271,16 @@ classdef SnirfClass < AcqDataClass
             
             % Initialize non-SNIRF variables
             obj.stim0          = StimClass().empty();            
+            obj.errmsgs = {
+                'MATLAB could not load the file.'
+                '''formatVersion'' is invalid.'
+                '''metaDataTags'' field is invalid.'
+                '''data'' field is invalid.'
+                '''stim'' field has corrupt data. Some or all stims could not be loaded'
+                '''probe'' field is invalid.'
+                '''aux'' field is invalid and could not be loaded'
+                'WARNING: ''data'' field corrupt and unusable'
+                };
         end
         
                
@@ -305,7 +316,11 @@ classdef SnirfClass < AcqDataClass
         
         
         % -------------------------------------------------------
-        function objnew = CopyMutable(obj, ~)
+        function objnew = CopyMutable(obj, options)
+            if nargin==1
+                options = '';
+            end
+            
             % Load mutable data from Snirf file here ONLY if data storage scheme is 'files'
             if strcmpi(obj.GetDataStorageScheme(), 'files')
                 obj.LoadStim(obj.GetFilename());
@@ -366,14 +381,9 @@ classdef SnirfClass < AcqDataClass
             end
             err = -1;
         end
-    end
         
         
         
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %  Load methods for SNIRF fields
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    methods
         
         % -------------------------------------------------------
         function err = LoadFormatVersion(obj)
@@ -384,7 +394,7 @@ classdef SnirfClass < AcqDataClass
             if formatVersionFile < formatVersionCurr
                 obj.logger.Write(sprintf('Warning: Current SNIRF version is %0.1f. Cannot load older version (%0.1f) file. Backward compatibility not yet implemented ...\n', ...
                     formatVersionCurr, formatVersionFile));
-                err = -1;
+                err = -2;
                 return
             end
         end
@@ -407,7 +417,7 @@ classdef SnirfClass < AcqDataClass
             err = 0;
             if isempty(obj.data)
                 obj.data = DataClass();
-                err = obj.data.LoadTime(obj.GetFilename());
+                err = obj.data.LoadTime(obj.GetFilename(), [obj.location, '/data1']);
             end
         end
         
@@ -416,22 +426,24 @@ classdef SnirfClass < AcqDataClass
         % -------------------------------------------------------
         function err = LoadData(obj, fileobj)
             err = 0;
-            ii = 1;
+            ii=1;
             while 1
                 if ii > length(obj.data)
                     obj.data(ii) = DataClass;
                 end
                 
-                errtmp = obj.data(ii).LoadHdf5(fileobj, [obj.location, '/data', num2str(ii)]);
-                if errtmp < 0
+                err = obj.data(ii).LoadHdf5(fileobj, [obj.location, '/data', num2str(ii)]);
+                if err < 0
                     obj.data(ii).delete();
                     obj.data(ii) = [];
+                    if err == -1
+                        err = 0;
+                    end
                     break;
-                elseif errtmp ~= 0
-                    err = -1;
+                elseif err > 0
                     break
                 end
-                ii = ii+1;
+                ii=ii+1;
             end
             
             % This is a required field. If it's empty means the whole snirf object is bad
@@ -447,43 +459,52 @@ classdef SnirfClass < AcqDataClass
             err = 0;
             
             if obj.LoadStimOverride(obj.GetFilename())
+%                 if obj.GetError()<0
+%                     err = -1;
+%                 end
                 return
             end
             
             obj.stim  = StimClass().empty();
             
-            ii = 1;
+            ii=1;
             while 1
                 if ii > length(obj.stim)
                     obj.stim(ii) = StimClass;
                 end
-                errtmp = obj.stim(ii).LoadHdf5(fileobj, [obj.location, '/stim', num2str(ii)]);
-                if errtmp == -1
+                err = obj.stim(ii).LoadHdf5(fileobj, [obj.location, '/stim', num2str(ii)]);
+                if err ~= 0
                     obj.stim(ii).delete();
                     obj.stim(ii) = [];
                     break;
-                elseif errtmp ~= 0
-                    err = -1;
-                    break;                    
+                else
+                    for kk = 1:ii-1
+                        if strcmp(obj.stim(kk).name, obj.stim(ii).name)
+                            obj.stim(ii).delete();
+                            obj.stim(ii) = [];
+                            err = err-6;
+                            break
+                        end
+                    end
+                    if err ~= 0
+                        break;
+                    end
                 end
-                ii = ii+1;
+                ii=ii+1;
             end
             
             % Load original, unedited stims, if they exist
-            ii = 1;
+            ii=1;
             while 1
                 if ii > length(obj.stim0)
                     obj.stim0(ii) = StimClass;
                 end
-                errtmp = obj.stim0(ii).LoadHdf5(fileobj, [obj.location, '/stim0', num2str(ii)]);
-                if errtmp == -1
+                if obj.stim0(ii).LoadHdf5(fileobj, [obj.location, '/stim0', num2str(ii)]) ~= 0
                     obj.stim0(ii).delete();
                     obj.stim0(ii) = [];
                     break;
-                elseif errtmp ~= 0
-                    break;                    
                 end
-                ii = ii+1;
+                ii=ii+1;
             end
             
         end
@@ -492,7 +513,6 @@ classdef SnirfClass < AcqDataClass
         
         % -------------------------------------------------------
         function err = LoadProbe(obj, fileobj, ~)
-            err = 0;
             % metaDataTags is a prerequisite for load probe, so check to make sure its already been loaded
             if isempty(obj.metaDataTags)
                 obj.LoadMetaDataTags(fileobj);
@@ -501,7 +521,10 @@ classdef SnirfClass < AcqDataClass
             % get lenth unit through class method
             LengthUnit = obj.metaDataTags.Get('LengthUnit');
             obj.probe = ProbeClass();
-            if obj.probe.LoadHdf5(fileobj, [obj.location, '/probe'], LengthUnit) < 0
+            err = obj.probe.LoadHdf5(fileobj, [obj.location, '/probe'], LengthUnit);
+            
+            % This is a required field. If it's empty means the whole snirf object is bad
+            if isempty(obj.probe)
                 err = -1;
             end
         end
@@ -511,20 +534,18 @@ classdef SnirfClass < AcqDataClass
         % -------------------------------------------------------
         function err = LoadAux(obj, fileobj)
             err = 0;
-            ii = 1;
+            ii=1;
             while 1
                 if ii > length(obj.aux)
                     obj.aux(ii) = AuxClass;
                 end
-                errtmp = obj.aux(ii).LoadHdf5(fileobj, [obj.location, '/aux', num2str(ii)]);
-                if errtmp == -1
+                err = obj.aux(ii).LoadHdf5(fileobj, [obj.location, '/aux', num2str(ii)]);
+                if err ~= 0
                     obj.aux(ii).delete();
                     obj.aux(ii) = [];
-                    break;                
-                elseif errtmp < 0
-                    err = -1;
+                    break;
                 end
-                ii = ii+1;
+                ii=ii+1;
             end
         end
         
@@ -546,13 +567,14 @@ classdef SnirfClass < AcqDataClass
                 fileobj = obj.GetFilename();
             end
             if isempty(fileobj)
-                obj.SetError(0, sprintf('File ERROR: file %s does not exist', fileobj))
+                err = -1;
                 return;
             end
             
             % Don't reload if not empty
             if ~obj.IsEmpty()
                 obj.LoadStim(fileobj);
+                err = obj.GetError();     % preserve error state if exiting early
                 return;
             end
             
@@ -563,9 +585,10 @@ classdef SnirfClass < AcqDataClass
                 
                 % Open group
                 [obj.gid, obj.fid] = HDF5_GroupOpen(fileobj, '/');
-                                
-                if obj.SetLocation() < 0
-                    obj.SetError(-2, ' Missing nirs or nirs1 group field')
+                
+                
+                if obj.SetLocation() < 0 && err == 0
+                    err = -1;
                 end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -575,48 +598,47 @@ classdef SnirfClass < AcqDataClass
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
                 %%%% Load formatVersion
-                if obj.LoadFormatVersion() 
-                    obj.SetError(-3, 'nirs.formatVersion ERROR');
+                if obj.LoadFormatVersion() < 0 && err >= 0
+                    err = -2;
                 end
 
                 %%%% Load metaDataTags
-                if obj.LoadMetaDataTags(obj.fid) < 0
+                if obj.LoadMetaDataTags(obj.fid) < 0 && err >= 0
                     % Here a positive return value means that invalid data meta tags 
-                    % should NOT be a show stopper if we can help it, if the rest of the data 
+                    % should NOT be a show stopper if we can help it, if the reste of the data 
                     % is valid. So just let user know they're invalid with a warning.
-                    obj.SetError(4, 'nirs.metaDataTags WARNING - corrupt field');
+                    err = 3;
                 end
 
                 %%%% Load data
                 errtmp = obj.LoadData(obj.fid);
-                if isempty(obj.data)
-                    obj.SetError(-5, 'nirs.data ERROR - missing field');
-                elseif errtmp < 0
-                    obj.SetError(-6, 'nirs.data ERROR - corrupt field');
+                if errtmp < 0 && err >= 0
+                    err = -4;
+                elseif errtmp == 5 && err >= 0
+                	err = 8;
+                elseif errtmp > 0 && err >= 0
+                    err = 4;
                 end
 
                 %%%% Load stim
-                if obj.LoadStim(obj.fid) < 0
+                if obj.LoadStim(obj.fid) < 0 && err >= 0
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    obj.SetError(7, 'nirs.stim WARNING - corrupt field');
+                    err = 5;
                 end
 
                 %%%% Load probe
-                errtmp = obj.LoadProbe(obj.fid);
-                if isempty(obj.probe)
-                    obj.SetError(-8, 'nirs.probe ERROR - missing field');
-                elseif errtmp < 0 
-                    obj.SetError(-9, 'nirs.probe ERROR - corrupt field');
+                if obj.LoadProbe(obj.fid) < 0 && err >= 0
+                    err = -6;
                 end
 
                 %%%% Load aux. This is an optional field
-                if obj.LoadAux(obj.fid) < 0
+                if obj.LoadAux(obj.fid) < 0 && err >= 0
                     % Optional field: even if invalid we still want to be
                     % able to work with the rest of the data. Only log
                     % warning
-                    obj.SetError(10, 'nirs.aux WARNING - corrupt field');
+                    err = 7;
                 end
                 
                 % Close group
@@ -624,28 +646,16 @@ classdef SnirfClass < AcqDataClass
                 
             catch
                 
-                if isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(0, 'not an HDF5 file format');
-                elseif isempty(obj.fid) || isempty(obj.gid)
-                    obj.SetError(-11, 'unidentified error');
-                end
+                err = -1;
                 
             end
             
-            if obj.fid.identifier > 0
+            if obj.fid > 0
                 H5F.close(obj.fid);
             end
             
-            err = obj.GetError();
-            
         end
-    end
-
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %  Save methods for SNIRF fields
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    methods
+        
         
         % -------------------------------------------------------
         function SaveMetaDataTags(obj, fileobj)
@@ -654,7 +664,8 @@ classdef SnirfClass < AcqDataClass
             end
         end
         
-                
+        
+        
         % -------------------------------------------------------
         function SaveData(obj, fileobj)
             for ii = 1:length(obj.data)
@@ -692,7 +703,8 @@ classdef SnirfClass < AcqDataClass
             end
         end
         
-                
+        
+        
         % -------------------------------------------------------
         function err = SaveHdf5(obj, fileobj, ~)
             err = 0;
@@ -751,13 +763,7 @@ classdef SnirfClass < AcqDataClass
             H5F.close(obj.fid);
         end
         
-    end
-    
         
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %  Misc stim related methods
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    methods
         
         % -------------------------------------------------------
         function [stimFromFile, changes] = UpdateStim(obj, fileobj)
@@ -849,14 +855,8 @@ classdef SnirfClass < AcqDataClass
             obj.UpdateStim(fileobj);
         end
         
-    end
-    
         
         
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %  Equality methods for comparing to other SnirfClass objects
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    methods
         
         % -------------------------------------------------------
         function B = eq(obj, obj2)
@@ -982,6 +982,7 @@ classdef SnirfClass < AcqDataClass
             end
             b = true;
         end
+        
         
     end
     
@@ -1723,46 +1724,6 @@ classdef SnirfClass < AcqDataClass
                 return;
             end
             b = false;
-        end
-        
-        
-        % ----------------------------------------------------------------------------------
-        function errmsg = GetErrorMsg(obj)
-            errmsg = '';
-            errmsgs = {};
-            if obj.probe.GetError() ~= 0
-                errmsgs{end+1,1} = obj.probe.GetErrorMsg();
-            end
-            for ii = 1:length(obj.data)
-                if obj.data(ii).GetError() ~= 0
-                    errmsgs{end+1,1} = obj.data(ii).GetErrorMsg(); %#ok<*AGROW>
-                end
-            end
-            for ii = 1:length(obj.stim)
-                if obj.stim(ii).GetError() ~= 0
-                    errmsgs{end+1,1} = obj.stim(ii).GetErrorMsg();
-                end
-            end
-            for ii = 1:length(obj.aux)
-                if obj.aux(ii).GetError() ~= 0
-                    errmsgs{end+1,1} = obj.aux(ii).GetErrorMsg();
-                end
-            end            
-            if obj.metaDataTags.GetError() ~= 0
-                errmsgs{end+1} = obj.metaDataTags.GetErrorMsg();
-            end
-            
-            % Now consolidate all error messages into one output string (errmsg).
-            for ii = 1:length(errmsgs)
-                if isempty(errmsgs{ii})
-                    continue
-                end
-                if isempty(errmsg)
-                    errmsg = sprintf('%s', errmsgs{ii});
-                else
-                    errmsg = sprintf('%s%s', errmsg, errmsgs{ii});
-                end
-            end
         end
         
         

@@ -1,4 +1,4 @@
-classdef NirsClass < AcqDataClass
+classdef NirsClass < AcqDataClass & FileLoadSaveClass
     
     properties
         SD
@@ -107,6 +107,20 @@ classdef NirsClass < AcqDataClass
             obj.d         = [];
             obj.aux       = [];
             obj.CondNames = {};
+            
+            
+            % Initialize non-.nirs variables
+            obj.errmsgs = {
+                'MATLAB could not load the file.'
+                '''d'' is invalid.'
+                '''t'' is invalid.'
+                '''SD'' is invalid.'
+                '''aux'' is invalid.'
+                '''s'' is invalid.'
+                'WARNING: ''data'' corrupt and unusable'                
+                'error unknown.'
+                };
+            
         end
         
         
@@ -188,10 +202,10 @@ classdef NirsClass < AcqDataClass
             if isproperty(fdata,'d')
                 obj.d = fdata.d;
                 if isempty(obj.d) && err == 0
-                    err = obj.SetError(-2, 'nirs.d error: data is empty');
+                    err = -2;
                 end
             elseif err == 0
-                err = obj.SetError(-2, 'nirs.d error: d field missing from file');
+                err = -2;
             end
         end
         
@@ -211,13 +225,13 @@ classdef NirsClass < AcqDataClass
                 if ~isempty(obj.t)
                     obj.errmargin = min(diff(obj.t))/10;
                 elseif err == 0
-                    err = obj.SetError(-3, 'nirs.t error: time is empty');
+                    err = -3;
                 end
                 if length(fdata.t) ~= size(fdata.d,1) && err == 0
-                    err = obj.SetError(-3, 'nirs.t error:  number of time points is not equal to size of data');
+                    err = -3;
                 end
             elseif err == 0
-                err = obj.SetError(-3, 'nirs.t error:  t field is missing');
+                err = -3;
             end
         end
         
@@ -227,10 +241,10 @@ classdef NirsClass < AcqDataClass
             if isproperty(fdata,'SD')
                 obj.CopyProbe(fdata.SD);
                 if isempty(obj.SD) && err == 0
-                    err = obj.SetError(-3, 'nirs.ml error:  measurement list is missing');
+                    err = -4;
                 end
             elseif err == 0
-                err = obj.SetError(-3, 'nirs.ml error:  measurement list is missing');
+                err = -4;
             end
         end
         
@@ -1437,23 +1451,17 @@ classdef NirsClass < AcqDataClass
         
         
         % ----------------------------------------------------------------------------------
-        function err = ConvertSnirfAux(obj, snirf)
-            err = 0;
-            try
-            	obj.aux = zeros(length(obj.t), length(snirf.aux));
-	            for ii = 1:length(snirf.aux)
-	                obj.aux(:,ii) = snirf.aux(ii).dataTimeSeries;
-	            end
-            catch
-                err = -1;
+        function ConvertSnirfAux(obj, snirf)
+            obj.aux = zeros(length(obj.t), length(snirf.aux));
+            for ii = 1:length(snirf.aux)
+                obj.aux(:,ii) = snirf.aux(ii).dataTimeSeries;
             end
         end
         
         
         
         % ----------------------------------------------------------------------------------
-        function err = ConvertSnirf(obj, snirf)
-            err = 0;
+        function ConvertSnirf(obj, snirf)
             obj.ConvertSnirfProbe(snirf);
             if ~isempty(snirf.data)
                 obj.d = snirf.data(1).dataTimeSeries;

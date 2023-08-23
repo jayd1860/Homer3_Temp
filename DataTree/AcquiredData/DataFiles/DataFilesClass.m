@@ -494,6 +494,7 @@ classdef DataFilesClass < handle
             % Try to create object of data filetype and load data into it
             msg = 'Please wait while we check group folder for valid data files ...';
             hwait = waitbar_improved(0, msg);
+            dataflag = false;
             for ii = 1:length(obj.files)
                 if obj.files(ii).isdir
                     continue;
@@ -501,66 +502,38 @@ classdef DataFilesClass < handle
                 filename = [obj.rootdir, obj.files(ii).name]; %#ok<NASGU>
                 eval( sprintf('o = %s(filename);', constructor) );
                 if  o.GetError() < 0
-                    msg = sprintf('DataFilesClass.ErrorCheck - "%s" ERROR:\n%s\n', obj.files(ii).name, o.GetErrorMsg());
-                    obj.LogError(msg, obj.files(ii));
+                    obj.logger.Write('DataFilesClass.ErrorCheck - ERROR: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
                     errorIdxs = [errorIdxs, ii]; %#ok<AGROW>
-                elseif o.GetError() > 0
-                    obj.logger.Write(sprintf('DataFilesClass.ErrorCheck - "%s" WARNING:\n%s\n', obj.files(ii).name, o.GetErrorMsg()));
+                elseif  contains(o.GetErrorMsg(), '''data'' field corrupt and unusable')                    
+                    obj.logger.Write('DataFilesClass.ErrorCheck - WARNING: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
+                    errorIdxs = [errorIdxs, ii]; %#ok<AGROW>
+                elseif  contains(o.GetErrorMsg(), '''data'' field is invalid')                    
+                    obj.logger.Write('DataFilesClass.ErrorCheck - WARNING: In file "%s" %s. File will not be added to data set\n', obj.files(ii).name, o.GetErrorMsg());
+                    errorIdxs = [errorIdxs, ii]; %#ok<AGROW>
+                elseif ~isempty(o.GetErrorMsg())
+                    obj.logger.Write('DataFilesClass.ErrorCheck - WARNING: In file  "%s"  %s. File will be added anyway.\n', obj.files(ii).name, o.GetErrorMsg());
+                    dataflag = true;
+                else
+                    dataflag = true;
                 end
                 if ~isempty(o.GetErrorMsg())
                     obj.files(ii).SetError(o.GetErrorMsg());
                 end
                 hwait = waitbar_improved(ii/length(obj.files), hwait, msg);
             end
-
-            obj.AddErrorFiles(errorIdxs);
-            if obj.nfiles == 0
+            
+            if dataflag==false
                 obj.files = FileClass.empty();
-            end            
+            else
+                for jj = 1:length(errorIdxs)
+                    obj.filesErr(end+1) = obj.files(errorIdxs(jj)).copy;
+                end
+            	obj.files(errorIdxs) = [];
+                obj.nfiles = obj.nfiles - length(errorIdxs);
+            end
             close(hwait);
         end
         
-        
-        
-        % ----------------------------------------------------------
-        function AddErrorFiles(obj, errorIdxs)
-            for jj = 1:length(errorIdxs)
-                % Make sure new error file we are adding is unique. It's
-                % possible to double count a file because a folder pattern
-                % match could have the same root folder (e.g., pattern 1
-                % and 2)
-                alreadyExists = false;
-                for kk = 1:length(obj.filesErr)
-                    if strcmp(obj.filesErr(kk).name, obj.files(errorIdxs(jj)).name)
-                        alreadyExists = true;
-                        break;
-                    end
-                end
-                if ~alreadyExists
-                    obj.filesErr(end+1) = obj.files(errorIdxs(jj)).copy;
-                end
-            end
-            obj.files(errorIdxs) = [];
-            obj.nfiles = obj.nfiles - length(errorIdxs);
-        end
-        
-
-        
-        % ----------------------------------------------------------
-        function alreadyExists = LogError(obj, msg, file)
-            alreadyExists = false;
-            for kk = 1:length(obj.filesErr)
-                if strcmp(obj.filesErr(kk).name, file.name)
-                    alreadyExists = true;
-                    break;
-                end
-            end
-            if ~alreadyExists
-                obj.logger.Write(msg)
-            end
-        end
-        
-
         
         % ----------------------------------------------------------
         function err = GetError(obj)
@@ -570,7 +543,7 @@ classdef DataFilesClass < handle
             end
             err = obj.err;
         end
-                   
+                
         % ----------------------------------------------------------
         function PrintFolderStructure(obj, options)
             if ~exist('options','var')

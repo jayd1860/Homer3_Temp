@@ -229,6 +229,7 @@ classdef ProbeClass < FileLoadSaveClass
         
         % -------------------------------------------------------
         function err = LoadHdf5(obj, fileobj, location, LengthUnit)
+            err = 0;
             
             % Arg 1
             if ~exist('fileobj','var') || (ischar(fileobj) && ~exist(fileobj,'file'))
@@ -237,9 +238,9 @@ classdef ProbeClass < FileLoadSaveClass
                         
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                obj.location = '/nirs/probe';
-            else
-                obj.location = location;
+                location = '/nirs/probe';
+            elseif location(1)~='/'
+                location = ['/',location];
             end
             
             % Arg3
@@ -266,13 +267,7 @@ classdef ProbeClass < FileLoadSaveClass
             
             try
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
-                if isstruct(gid)
-                    if gid.double < 0 
-                        err = obj.SetError(0, 'probe field can''t be loaded');
-                        return
-                    end
-                end
+                [gid, fid] = HDF5_GroupOpen(fileobj, location);
                 
                 % Load datasets
                 obj.wavelengths               = HDF5_DatasetLoad(gid, 'wavelengths');
@@ -297,7 +292,9 @@ classdef ProbeClass < FileLoadSaveClass
                 
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
-                                
+                
+                assert(obj.IsValid())
+                
             catch 
                 err = -1;
                 return;
@@ -321,9 +318,7 @@ classdef ProbeClass < FileLoadSaveClass
                     obj.detectorPos3D(:,3) = 0;
                 end
             end
-                        
-            err = obj.ErrorCheck();
-            
+            obj.SetError(err); 
         end
 
         
@@ -335,6 +330,13 @@ classdef ProbeClass < FileLoadSaveClass
             % Arg 1
             if ~exist('fileobj', 'var') || isempty(fileobj)
                 error('Unable to save file. No file name given.')
+            end
+            
+            % Arg 2
+            if ~exist('location', 'var') || isempty(location)
+                location = '/nirs/probe';
+            elseif location(1)~='/'
+                location = ['/',location];
             end
             
             % Convert file object to HDF5 file descriptor
@@ -526,56 +528,28 @@ classdef ProbeClass < FileLoadSaveClass
         
         
         % ----------------------------------------------------------------------------------
-        function err = ErrorCheck(obj)
-            obj.IsValid();
-            err = obj.GetError();
-        end
-        
-
-        
-        % ----------------------------------------------------------------------------------
         function b = IsValid(obj)
+            b = false;
             if obj.IsEmpty()
-                obj.SetError(-2, sprintf('%s field is missing', obj.location));
                 return;
             end
-            if size(obj.sourcePos2D,2) < 2 || size(obj.sourcePos2D,2) > 3
-                obj.SetError(-3, sprintf('%s:  field has wrong number of coordinates (%d)', ...
-                                     [obj.location, '/sourcePos2D'], size(obj.sourcePos2D,2)));
+            if iscolumn(obj.sourcePos2D)
+                return;
             end
-            if size(obj.sourcePos3D,2) ~= 3
-                obj.SetError(-4, sprintf('%s:  field has wrong number of coordinates (%d)', ...
-                                     [obj.location, '/sourcePos3D'], size(obj.sourcePos3D,2)));
-            end
-            if size(obj.detectorPos2D,2) < 2 || size(obj.detectorPos2D,2) > 3
-                obj.SetError(-5, sprintf('%s:  field has wrong number of coordinates (%d)', ...
-                                     [obj.location, '/detectorPos2D'], size(obj.detectorPos2D,2)));
-            end
-            if size(obj.detectorPos3D,2) ~= 3
-                obj.SetError(-6, sprintf('%s:  field has wrong number of coordinates (%d)', ...
-                                     [obj.location, '/detectorPos3D'], size(obj.detectorPos3D,2)));
-            end
-            if ~isempty(obj.landmarkPos2D)
-                if size(obj.landmarkPos2D,2) < 2 || size(obj.landmarkPos2D,2) > 3
-                    obj.SetError(-7, sprintf('%s:  field has wrong number of coordinates (%d)', ...
-                        [obj.location, '/landmarkPos2D'], size(obj.landmarkPos2D,2)));
+            if length(obj.sourcePos2D)>4
+                if size(obj.sourcePos2D,2) > size(obj.sourcePos2D,1)
+                    return;
                 end
             end
-            if ~isempty(obj.landmarkPos3D)
-                if size(obj.landmarkPos3D,2) ~= 3
-                    obj.SetError(-8, sprintf('%s:  field has wrong number of coordinates (%d)', ...
-                        [obj.location, '/landmarkPos3D'], size(obj.landmarkPos3D,2)));
+            if iscolumn(obj.detectorPos2D)
+                return;
+            end
+            if length(obj.detectorPos2D)>4
+                if size(obj.detectorPos2D,2) > size(obj.detectorPos2D,1)
+                    return;
                 end
             end
-            if (length(obj.landmarkLabels) ~= size(obj.landmarkPos2D,1)) && (length(obj.landmarkLabels) ~= size(obj.landmarkPos3D,1))
-                obj.SetError(-9, sprintf('%s:  number of labels (%d) does NOT equal number of positions (2D = %d, 3D = %d)', ...
-                                     [obj.location '/landmarkLabels'], length(obj.landmarkLabels), size(obj.landmarkPos2D,1), size(obj.landmarkPos3D,1)));
-            end
-            if obj.GetError()<0
-                b = false;
-            elseif obj.GetError() == 0
-                b = true;
-            end
+            b = true;
         end
         
         

@@ -40,9 +40,9 @@ classdef MetaDataTagsClass  < FileLoadSaveClass
             
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                obj.location = '/nirs/metaDataTags';
-            else
-                obj.location = location;
+                location = '/nirs/metaDataTags';
+            elseif location(1)~='/'
+                location = ['/',location];
             end
                        
             % Error checking
@@ -64,13 +64,7 @@ classdef MetaDataTagsClass  < FileLoadSaveClass
                 obj.tags = struct();
                 
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
-                if isstruct(gid)
-                    if gid.double < 0 
-                        err = obj.SetError(0, 'metaDataTags field can''t be loaded');
-                        return 
-                    end
-                end
+                [gid, fid] = HDF5_GroupOpen(fileobj, location);
                 
                 metaDataStruct = h5loadgroup(gid);
                 tags = fieldnames(metaDataStruct); %#ok<*PROPLC>
@@ -79,13 +73,16 @@ classdef MetaDataTagsClass  < FileLoadSaveClass
                 end
                 
                 HDF5_GroupClose(fileobj, gid, fid);
+
+                % Detect old or invalid metadatatag data
+                assert(obj.IsValid());
                 
             catch
                 
                 err = -1;
                 
             end
-            err = obj.ErrorCheck();
+            obj.SetError(err);
 
         end
         
@@ -98,7 +95,7 @@ classdef MetaDataTagsClass  < FileLoadSaveClass
             if ~exist('fileobj', 'var') || isempty(fileobj)
                 error('Unable to save file. No file name given.')
             end
-                       
+            
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
                 location = '/nirs/metaDataTags';
@@ -212,39 +209,11 @@ classdef MetaDataTagsClass  < FileLoadSaveClass
         function nbytes = MemoryRequired(obj)
             nbytes = 0;
             fields = propnames(obj.tags);
-            for ii = 1:length(fields)
+            for ii=1:length(fields)
                 nbytes = nbytes + eval(sprintf('sizeof(obj.tags.%s)', fields{ii}));
             end
         end
         
-        
-        % ----------------------------------------------------------------------------------
-        function err = ErrorCheck(obj)
-            % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
-            if ~isproperty(obj.tags, 'SubjectID')
-                obj.SetError(-1, sprintf('%s:  SubjectID tag missing', obj.location));
-            end
-            if ~isproperty(obj.tags, 'MeasurementDate')
-                obj.SetError(-2, sprintf('%s:  MeasurementDate tag missing', obj.location));
-            end
-            if ~isproperty(obj.tags, 'MeasurementTime')
-                obj.SetError(-3, sprintf('%s:  MeasurementTime tag missing', obj.location));
-            end
-            if ~isproperty(obj.tags, 'LengthUnit')
-                obj.SetError(-4, sprintf('%s:  LengthUnit tag missing', obj.location));
-            end
-            if ~isproperty(obj.tags, 'TimeUnit')
-                obj.SetError(-5, sprintf('%s:  TimeUnit tag missing', obj.location));
-            end
-            if ~isproperty(obj.tags, 'FrequencyUnit')
-                obj.SetError(-6, sprintf('%s:  FrequencyUnit tag missing', obj.location));
-            end
-            if ~isproperty(obj.tags, 'AppName')
-                obj.SetError(-7, sprintf('%s:  AppName tag missing', obj.location));
-            end
-            err = obj.GetError();
-        end
-               
     end    
 end
 

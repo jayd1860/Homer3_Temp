@@ -44,19 +44,19 @@ classdef MeasListClass < FileLoadSaveClass
             %
             
             % Fields which are part of the SNIRF spec which are loaded and saved 
-            % from/to SNIRF files        
-            obj.sourceIndex                 = 0;
-            obj.detectorIndex               = 0;
-            obj.wavelengthIndex             = 0;
+            % from/to SNIRF files
+            obj.sourceIndex      = 0;
+            obj.detectorIndex    = 0;
+            obj.wavelengthIndex  = 0;
             obj.wavelengthActual            = 0;
             obj.wavelengthEmissionActual    = 0;
-            obj.dataType                    = 0;
+            obj.dataType         = 0;
             obj.dataUnit                    = '';
-            obj.dataTypeLabel               = '';
-            obj.dataTypeIndex               = 0;
-            obj.sourcePower                 = 0;
-            obj.detectorGain                = 0;
-            obj.moduleIndex                 = 0;
+            obj.dataTypeLabel    = '';
+            obj.dataTypeIndex    = 0;
+            obj.sourcePower      = 0;
+            obj.detectorGain     = 0;
+            obj.moduleIndex      = 0;
             obj.sourceModuleIndex           = 0;
             obj.detectorModuleIndex         = 0;
             
@@ -94,6 +94,8 @@ classdef MeasListClass < FileLoadSaveClass
         
         % -------------------------------------------------------
         function err = LoadHdf5(obj, fileobj, location)
+            err = 0;
+            
             % Arg 1
             if ~exist('fileobj','var') || (ischar(fileobj) && ~exist(fileobj,'file'))
                 fileobj = '';
@@ -101,12 +103,12 @@ classdef MeasListClass < FileLoadSaveClass
 
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                obj.location = '/nirs/data1/measurementList1';
-            else
-                obj.location = location;
+                location = '/nirs/data1/measurementList1';
+            elseif location(1)~='/'
+                location = ['/',location];
             end
             
-            % Error checking
+            % Error checking            
             if ~isempty(fileobj) && ischar(fileobj)
                 obj.SetFilename(fileobj);
             elseif isempty(fileobj)
@@ -119,44 +121,41 @@ classdef MeasListClass < FileLoadSaveClass
 
             try
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
-                if isstruct(gid)
-                    if gid.double < 0 
-                        err = obj.SetError(0, 'measurementList field can''t be loaded');
-                        return 
-                    end
-                end
+                [gid, fid] = HDF5_GroupOpen(fileobj, location);
                 
                 % Load datasets
-                obj.sourceIndex                 = HDF5_DatasetLoad(gid, 'sourceIndex');
-                obj.detectorIndex               = HDF5_DatasetLoad(gid, 'detectorIndex');
-                obj.wavelengthIndex             = HDF5_DatasetLoad(gid, 'wavelengthIndex');
+                obj.sourceIndex     = HDF5_DatasetLoad(gid, 'sourceIndex');
+                obj.detectorIndex   = HDF5_DatasetLoad(gid, 'detectorIndex');
+                obj.wavelengthIndex = HDF5_DatasetLoad(gid, 'wavelengthIndex');
                 obj.wavelengthActual            = HDF5_DatasetLoad(gid, 'wavelengthActual');
                 obj.wavelengthEmissionActual    = HDF5_DatasetLoad(gid, 'wavelengthEmissionActual');
-                obj.dataType                    = HDF5_DatasetLoad(gid, 'dataType');
+                obj.dataType        = HDF5_DatasetLoad(gid, 'dataType');
                 obj.dataUnit                    = HDF5_DatasetLoad(gid, 'dataUnit', obj.dataUnit);
-                obj.dataTypeIndex               = HDF5_DatasetLoad(gid, 'dataTypeIndex');
-                obj.dataTypeLabel               = HDF5_DatasetLoad(gid, 'dataTypeLabel', obj.dataTypeLabel);
-                obj.sourcePower                 = HDF5_DatasetLoad(gid, 'sourcePower');
-                obj.moduleIndex                 = HDF5_DatasetLoad(gid, 'moduleIndex');
+                obj.dataTypeIndex   = HDF5_DatasetLoad(gid, 'dataTypeIndex');
+                obj.dataTypeLabel   = HDF5_DatasetLoad(gid, 'dataTypeLabel', obj.dataTypeLabel);
+                obj.sourcePower     = HDF5_DatasetLoad(gid, 'sourcePower');
+                obj.moduleIndex     = HDF5_DatasetLoad(gid, 'moduleIndex');
                 obj.detectorGain                = HDF5_DatasetLoad(gid, 'detectorGain');
                 obj.sourceModuleIndex           = HDF5_DatasetLoad(gid, 'sourceModuleIndex');
                 obj.detectorModuleIndex         = HDF5_DatasetLoad(gid, 'detectorModuleIndex');
                 
                 HDF5_GroupClose(fileobj, gid, fid);
-                
             catch
-                
-                if isstruct(gid)
-                    if gid.double < 0 
-                        err = obj.SetError(0, 'measurementList field can''t be loaded');
-                        return 
-                    end
-                end
-                
+                err = -1;
+                return
             end
             
-            err = obj.ErrorCheck();
+            if obj.IsEmpty()
+                err = -1;
+            end
+            if obj.sourceIndex<1
+                err = -1;
+            end
+            if obj.detectorIndex<1
+                err = -1;
+            end
+
+            obj.SetError(err);
         end
 
         
@@ -267,29 +266,6 @@ classdef MeasListClass < FileLoadSaveClass
         end
 
         
-        % ----------------------------------------------------------------------------------
-        function err = ErrorCheck(obj)
-            % According to SNIRF spec, stim data is invalid if it has > 0 AND < 3 columns
-            if length(obj.sourceIndex)~=1 || obj.sourceIndex<1
-                obj.SetError(-4, sprintf('%s/sourceIndex:  bad value', obj.location));
-            end
-            if length(obj.detectorIndex)~=1 || obj.detectorIndex<1
-                obj.SetError(-5, sprintf('%s/detectorIndex:  bad value', obj.location));
-            end
-            if length(obj.wavelengthIndex)~=1 || obj.wavelengthIndex<1
-                obj.SetError(-6, sprintf('%s/wavelengthIndex:  bad value', obj.location));
-            end
-            if length(obj.dataType)~=1
-                obj.SetError(-7, sprintf('%s/dataType:  bad value', obj.location));
-            end
-            if ~ischar(obj.dataTypeLabel)
-                obj.SetError(-8, sprintf('%s/dataTypeLabel:  is bad', obj.location));
-            end
-            err = obj.GetError();
-        end
-        
-
-
         % -------------------------------------------------------
         function B = eq(obj, obj2)
             B = false;       

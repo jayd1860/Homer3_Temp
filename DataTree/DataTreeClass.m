@@ -460,7 +460,7 @@ classdef DataTreeClass <  handle
                 % (We do not reset current subject or group because they can contain multiple 
                 % nodes and they cannot be empty once they've been initialized once whereas run 
                 % can be if it fails to load a data file. 
-                if ~runCurr.GetError()
+                if ~runCurr.Error()
                     obj.Add(groupCurr, subjCurr, sessCurr, runCurr);
                     runCurr = RunClass().empty();
                 end

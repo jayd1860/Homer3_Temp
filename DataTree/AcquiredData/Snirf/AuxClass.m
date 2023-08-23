@@ -51,9 +51,9 @@ classdef AuxClass < FileLoadSaveClass
             
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                obj.location = '/nirs/aux1';
-            else
-                obj.location = location;
+                location = '/nirs/aux1';
+            elseif location(1)~='/'
+                location = ['/',location];
             end
             
             % Error checking for file existence
@@ -70,14 +70,12 @@ classdef AuxClass < FileLoadSaveClass
             %%%%%%%%%%%% Ready to load from file
             try               
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
+                [gid, fid] = HDF5_GroupOpen(fileobj, location);
                 
                 % Absence of optional aux field raises error > 0
-                if isstruct(gid)
-                    if gid.double < 0 
-                        err = obj.SetError(0, sprintf('aux field %s field can''t be loaded', obj.location));
-                        return 
-                    end
+                if gid.double < 0
+                    err = 1;
+                    return;
                 end
                 
                 obj.name            = HDF5_DatasetLoad(gid, 'name');
@@ -96,24 +94,24 @@ classdef AuxClass < FileLoadSaveClass
                 if iscell(obj.name) && length(obj.name) == 1
                     obj.name = obj.name{1};
                 end
-                                
+                
+                err = obj.ErrorCheck();
+                
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
                 
             catch
                 
-                if isstruct(gid)
-                    if gid.double < 0 
-                        obj.SetError(0, sprintf('aux field %s field can''t be loaded', obj.location));
-                    end
+                if gid.double > 0
+                    % If optional aux field exists BUT is in some way invalid it raises error < 0
+                    err = -6;
                 else
-                    obj.SetError(-7, sprintf('aux field %s field can''t be loaded', obj.location));
+                    err = 1;
                 end
                 
             end
             
-            err = obj.ErrorCheck();
-            
+            obj.SetError(err); 
         end
 
         
@@ -125,7 +123,7 @@ classdef AuxClass < FileLoadSaveClass
             if ~exist('fileobj', 'var') || isempty(fileobj)
                 error('Unable to save file. No file name given.')
             end
-                        
+            
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
                 location = '/nirs/aux1';
@@ -247,22 +245,27 @@ classdef AuxClass < FileLoadSaveClass
         
         % ----------------------------------------------------------------------------------
         function err = ErrorCheck(obj)
+            err = 0;
             if isempty(obj.name)
-                obj.SetError(-2, sprintf('%s:  field is empty', [obj.location, '/name']));
+                err = -1;
+                return
             end
             if isempty(obj.dataTimeSeries)
-                obj.SetError(-3, sprintf('%s:  field is empty', [obj.location, '/dataTimeSeries']));
+                err = -2;
+                return
             end
             if isempty(obj.time)
-                obj.SetError(-4, sprintf('%s:  field is empty', [obj.location, '/time']));
+                err = -3;
+                return
             end
             if length(obj.dataTimeSeries) ~= length(obj.time)
-                obj.SetError(-5, sprintf('%s:  size does not equal aux.dataTimeSeries', [obj.location, '/time']));
+                err = -4;
+                return
             end
             if ~ischar(obj.name)
-                obj.SetError(-6, sprintf('%s:  field is empty', [obj.location, '/name']));
+                err = -5;
+                return
             end
-            err = obj.GetError();
         end
         
         
