@@ -51,9 +51,9 @@ classdef AuxClass < FileLoadSaveClass
             
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                location = '/nirs/aux1';
-            elseif location(1)~='/'
-                location = ['/',location];
+                obj.location = '/nirs/aux1';
+            else
+                obj.location = location;
             end
             
             % Error checking for file existence
@@ -70,12 +70,14 @@ classdef AuxClass < FileLoadSaveClass
             %%%%%%%%%%%% Ready to load from file
             try               
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
                 
                 % Absence of optional aux field raises error > 0
+                if isstruct(gid)
                 if gid.double < 0
-                    err = 1;
-                    return;
+                        err = obj.SetError(0, sprintf('aux field %s field can''t be loaded', obj.location));
+                        return 
+                end
                 end
                 
                 obj.name            = HDF5_DatasetLoad(gid, 'name');
@@ -95,23 +97,23 @@ classdef AuxClass < FileLoadSaveClass
                     obj.name = obj.name{1};
                 end
                 
-                err = obj.ErrorCheck();
-                
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
                 
             catch
                 
-                if gid.double > 0
-                    % If optional aux field exists BUT is in some way invalid it raises error < 0
-                    err = -6;
+                if isstruct(gid)
+                    if gid.double < 0 
+                        obj.SetError(0, sprintf('aux field %s field can''t be loaded', obj.location));
+                    end
                 else
-                    err = 1;
+                    obj.SetError(7, sprintf('aux field %s field can''t be loaded', obj.location));
                 end
                 
             end
             
-            obj.SetError(err); 
+            err = obj.ErrorCheck();
+            
         end
 
         
@@ -144,8 +146,8 @@ classdef AuxClass < FileLoadSaveClass
             
             hdf5write_safe(fid, [location, '/name'], obj.name);
             hdf5write_safe(fid, [location, '/dataTimeSeries'], obj.dataTimeSeries, 'array');
-            hdf5write_safe(fid, [location, '/time'], obj.time, 'array');
-            hdf5write_safe(fid, [location, '/timeOffset'], obj.timeOffset, 'array');
+            hdf5write_safe(fid, [location, '/time'], obj.time, 'vector');
+            hdf5write_safe(fid, [location, '/timeOffset'], obj.timeOffset, 'vector');
         end
         
         
@@ -179,16 +181,14 @@ classdef AuxClass < FileLoadSaveClass
         % ----------------------------------------------------------------------------------
         function Copy(obj, obj2)
             if isempty(obj)
-                obj = DataClass();
+                obj = AuxClass();
             end
-            if ~isa(obj2, 'DataClass')
+            if ~isa(obj2, 'AuxClass')
                 return;
             end
-            for ii=1:length(obj2.measurementList)
-                obj.measurementList(ii) = obj2.measurementList(ii).copy();      % shallow copy ok because MeasListClass has no handle properties
-            end
-            obj.dataTimeSeries = obj2.dataTimeSeries;
-            obj.time = obj2.time;
+            obj.dataTimeSeries  = obj2.dataTimeSeries;
+            obj.time            = obj2.time;
+            obj.timeOffset      = obj2.timeOffset;
         end
         
         
@@ -245,27 +245,22 @@ classdef AuxClass < FileLoadSaveClass
         
         % ----------------------------------------------------------------------------------
         function err = ErrorCheck(obj)
-            err = 0;
             if isempty(obj.name)
-                err = -1;
-                return
+                obj.SetError(2, sprintf('%s:  field is empty', [obj.location, '/name']));
             end
             if isempty(obj.dataTimeSeries)
-                err = -2;
-                return
+                obj.SetError(3, sprintf('%s:  field is empty', [obj.location, '/dataTimeSeries']));
             end
             if isempty(obj.time)
-                err = -3;
-                return
+                obj.SetError(4, sprintf('%s:  field is empty', [obj.location, '/time']));
             end
             if length(obj.dataTimeSeries) ~= length(obj.time)
-                err = -4;
-                return
+                obj.SetError(5, sprintf('%s:  size does not equal size of dataTimeSeries', [obj.location, '/time']));
             end
             if ~ischar(obj.name)
-                err = -5;
-                return
+                obj.SetError(6, sprintf('%s:  field is empty', [obj.location, '/name']));
             end
+            err = obj.GetError();
         end
         
         

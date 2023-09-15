@@ -19,6 +19,10 @@ for ii = 1:length(dirs)
     if ~exist([pathfull, '/groupResults_homer2_lpf_0_30.mat'], 'file')
         continue;
     end    
+    
+    % Start out in known state by removing any non-versioned files
+    gitRevert(pathfull);
+    
     groupFolders{kk} = dirs(ii).name;
     logger.Write('Found unit test folder %s\n', pathfull);
     

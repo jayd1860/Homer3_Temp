@@ -1,4 +1,4 @@
-classdef NirsClass < AcqDataClass & FileLoadSaveClass
+classdef NirsClass < AcqDataClass
     
     properties
         SD
@@ -76,7 +76,7 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
             if ~ischar(varargin{1}) && nargin==1
                 obj.ErrorCheck();
                 return
-            end
+            end           
             
             if nargin==2
                 obj.SetDataStorageScheme(varargin{2});
@@ -107,20 +107,6 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
             obj.d         = [];
             obj.aux       = [];
             obj.CondNames = {};
-            
-            
-            % Initialize non-.nirs variables
-            obj.errmsgs = {
-                'MATLAB could not load the file.'
-                '''d'' is invalid.'
-                '''t'' is invalid.'
-                '''SD'' is invalid.'
-                '''aux'' is invalid.'
-                '''s'' is invalid.'
-                'WARNING: ''data'' corrupt and unusable'                
-                'error unknown.'
-                };
-            
         end
         
         
@@ -202,10 +188,10 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
             if isproperty(fdata,'d')
                 obj.d = fdata.d;
                 if isempty(obj.d) && err == 0
-                    err = -2;
+                    err = obj.SetError(-2, 'nirs.d error: data is empty');
                 end
             elseif err == 0
-                err = -2;
+                err = obj.SetError(-4, 'nirs.d error: d field missing from file');
             end
         end
         
@@ -225,13 +211,13 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
                 if ~isempty(obj.t)
                     obj.errmargin = min(diff(obj.t))/10;
                 elseif err == 0
-                    err = -3;
+                    err = obj.SetError(1, 'nirs.t error: time is empty');
                 end
                 if length(fdata.t) ~= size(fdata.d,1) && err == 0
                     err = -3;
                 end
             elseif err == 0
-                err = -3;
+                err = obj.SetError(2, 'nirs.t error:  t field is missing');
             end
         end
         
@@ -241,10 +227,10 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
             if isproperty(fdata,'SD')
                 obj.CopyProbe(fdata.SD);
                 if isempty(obj.SD) && err == 0
-                    err = -4;
+                    err = obj.SetError(3, 'nirs.ml error:  measurement list is missing');
                 end
             elseif err == 0
-                err = -4;
+                err = obj.SetError(4, 'nirs.ml error:  measurement list is missing');
             end
         end
         
@@ -253,8 +239,6 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
         function err = LoadAux(obj, fdata, err)
             if isproperty(fdata,'aux')
                 obj.aux = fdata.aux;
-            elseif err==0
-                err = 5;
             end
         end
         
@@ -361,10 +345,15 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
             end
             [~, k1] = sortrows(obj.SD.MeasList);
             [~, k2] = sortrows(obj2.SD.MeasList);
+            
+            % Compare meas list dimensions first - if that's not equal then the probes aren't equal
+            if ~all( size(obj.SD.MeasList(k1,:)) == size(obj2.SD.MeasList(k2,:)) )
+                return;
+            end
+
             if ~all(obj.SD.MeasList(k1,:) == obj2.SD.MeasList(k2,:))
                 return;
-            end            
-
+            end
             
             for kk = 1:length(fields)
                 for jj = 1:length(fields{kk})
@@ -1376,8 +1365,68 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
                 end
             end
         end
+        
+        
+        
+        % ----------------------------------------------------------------------------------
+        function b = IsProbeFlat(obj)
+            b = false;
+            if all(size(obj.SD.SrcPos) == size(obj.SD.SrcPos3D))
+                if ~all(obj.SD.SrcPos == obj.SD.SrcPos3D)
+                    return;
+                end
+            end
+            if all(size(obj.SD.DetPos) == size(obj.SD.DetPos3D))
+                if ~all(obj.SD.DetPos == obj.SD.DetPos3D)
+                    return
+                end
+            end
+            optpos = [obj.SD.SrcPos3D; obj.SD.DetPos3D];
+            ncoord = size(optpos, 2);
+            for ii = 1:ncoord
+                if length(unique(optpos(:,ii)))==1
+                    b = true;
+                    return
+                end
+            end
+            b = true;
+        end
+        
+        
+        
+        % ----------------------------------------------------------------------------------
+        function b = Are3DLandmarksFlat(obj)
+            b = true;
+            if isempty(obj.SD.Landmarks3D.pos)
+                return;
+            end
+            ncoord = size(obj.SD.Landmarks3D.pos, 2);
+            for ii = 1:ncoord
+                if length(unique(obj.SD.Landmarks3D.pos(:,ii)))==1
+                    return;
+                end
+            end
+            b = false;
+        end
+        
 
         
+        % ----------------------------------------------------------------------------------
+        function b = AreLandmarksFlat(obj)
+            b = true;
+            if isempty(obj.SD.Landmarks.pos)
+                return;
+            end
+            ncoord = size(obj.SD.Landmarks.pos, 2);
+            for ii = 1:ncoord
+                if length(unique(obj.SD.Landmarks.pos(:,ii)))==1
+                    return;
+                end
+            end
+            b = false;
+        end
+        
+
         
         % ----------------------------------------------------------------------------------
         function err = ConvertSnirfProbe(obj, snirf)
@@ -1391,7 +1440,7 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
             try
 	            obj.SD.Lambda = snirf.probe.wavelengths;
 	            obj.SD.SrcPos = snirf.probe.sourcePos2D;
-	            obj.SD.DetPos = snirf.probe.detectorPos2D;
+	            obj.SD.DetPos = snirf.probe.detectorPos2D;                
 	            obj.SD.SrcPos3D = snirf.probe.sourcePos3D;
 	            obj.SD.DetPos3D = snirf.probe.detectorPos3D;
 	            obj.SD.MeasList = snirf.GetMeasList();
@@ -1400,17 +1449,17 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
 	                obj.SD.Landmarks3D.labels   = snirf.probe.landmarkLabels;
 	            	obj.SD.Landmarks3D.pos      = snirf.probe.landmarkPos3D;
 	            end
-	            if length(snirf.probe.landmarkLabels) == size(snirf.probe.landmarkPos2D,1)
-	            	obj.SD.Landmarks2D.labels   = snirf.probe.landmarkLabels;
-	                obj.SD.Landmarks2D.pos      = snirf.probe.landmarkPos2D;
-	        	end
-	            if     ~isempty(obj.SD.Landmarks3D.labels)
-	                obj.SD.Landmarks.pos        = obj.SD.Landmarks3D.pos;
-	                obj.SD.Landmarks.labels     = obj.SD.Landmarks3D.labels;
-	            elseif ~isempty(obj.SD.Landmarks2D.labels)
-	                obj.SD.Landmarks.pos        = obj.SD.Landmarks2D.pos;
-	                obj.SD.Landmarks.labels     = obj.SD.Landmarks2D.labels;
-	            end                
+                if length(snirf.probe.landmarkLabels) == size(snirf.probe.landmarkPos2D,1)
+                    obj.SD.Landmarks2D.labels   = snirf.probe.landmarkLabels;
+                    obj.SD.Landmarks2D.pos      = snirf.probe.landmarkPos2D;
+                end
+                if     ~isempty(obj.SD.Landmarks3D.labels)
+                    obj.SD.Landmarks.pos        = obj.SD.Landmarks3D.pos;
+                    obj.SD.Landmarks.labels     = obj.SD.Landmarks3D.labels;
+                elseif ~isempty(obj.SD.Landmarks2D.labels)
+                    obj.SD.Landmarks.pos        = obj.SD.Landmarks2D.pos;
+                    obj.SD.Landmarks.labels     = obj.SD.Landmarks2D.labels;
+                end
             catch
                 err = -1;
             end
@@ -1451,17 +1500,20 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
         
         
         % ----------------------------------------------------------------------------------
-        function ConvertSnirfAux(obj, snirf)
-            obj.aux = zeros(length(obj.t), length(snirf.aux));
-            for ii = 1:length(snirf.aux)
-                obj.aux(:,ii) = snirf.aux(ii).dataTimeSeries;
+        function err = ConvertSnirfAux(obj, snirf)
+            err = 0;
+            try
+            	obj.aux = snirf.GetAuxDataMatrix();
+            catch
+                err = -1;
             end
         end
         
         
         
         % ----------------------------------------------------------------------------------
-        function ConvertSnirf(obj, snirf)
+        function err = ConvertSnirf(obj, snirf)
+            err = 0;
             obj.ConvertSnirfProbe(snirf);
             if ~isempty(snirf.data)
                 obj.d = snirf.data(1).dataTimeSeries;
@@ -1541,7 +1593,14 @@ classdef NirsClass < AcqDataClass & FileLoadSaveClass
                     end
                 end
             end
-            
+            if obj.IsProbeFlat()
+                obj.SD.SrcPos3D = [];
+                obj.SD.DetPos3D = [];
+            end
+            if obj.Are3DLandmarksFlat() && ~obj.AreLandmarksFlat()
+                obj.SD.Landmarks3D.pos      = obj.SD.Landmarks.pos;
+                obj.SD.Landmarks3D.labels   = obj.SD.Landmarks.labels;
+            end
         end
         
         

@@ -113,8 +113,6 @@ classdef DataClass < FileLoadSaveClass
         
         % -------------------------------------------------------
         function err = LoadHdf5(obj, fileobj, location)
-            err = 0;
-            
             % Arg 1
             if ~exist('fileobj','var') || (ischar(fileobj) && ~exist(fileobj,'file'))
                 fileobj = '';
@@ -122,9 +120,9 @@ classdef DataClass < FileLoadSaveClass
                       
             % Arg 2
             if ~exist('location', 'var') || isempty(location)
-                location = '/nirs/data1';
-            elseif location(1)~='/'
-                location = ['/',location];
+                obj.location = '/nirs/data1';
+            else
+                obj.location = location;
             end
             
             % Error checking            
@@ -140,10 +138,10 @@ classdef DataClass < FileLoadSaveClass
             
             try
                 % Open group
-                [gid, fid] = HDF5_GroupOpen(fileobj, location);
+                [gid, fid] = HDF5_GroupOpen(fileobj, obj.location);
                 if isstruct(gid)
                     if gid.double < 0 
-                        err = -1;
+                        err = obj.SetError(0, 'data field can''t be loaded');
                         return 
                     end
                 end                
@@ -156,37 +154,39 @@ classdef DataClass < FileLoadSaveClass
                     if ii > length(obj.measurementList)
                         obj.measurementList(ii) = MeasListClass;
                     end
-                    if obj.measurementList(ii).LoadHdf5(fileobj, [location, '/measurementList', num2str(ii)]) < 0
-                        if ~obj.measurementList(ii).IsEmpty()
-                            err = -1;                        
-                        else
+                    errtmp = obj.measurementList(ii).LoadHdf5(fileobj, [obj.location, '/measurementList', num2str(ii)]);
+                    if  errtmp == -1
                             obj.measurementList(ii).delete();
                             obj.measurementList(ii) = [];
-                        end
-                        if ii == 1
-                            err = -1;
-                        end
-                        break;
+                        break
+                    elseif errtmp < 0
+                        obj.SetError(-2, 'data.measurementList ERROR');
+                        break
                     end
                     ii=ii+1;
                 end
                 
                 % Close group
                 HDF5_GroupClose(fileobj, gid, fid);
+                
             catch
-                err = -1;
+                
+                if isstruct(gid)
+                    if gid.double < 0
+                        obj.SetError(0, 'data field can''t be loaded');
+                    end
             end
             
-            err = ErrorCheck(obj, err);
-            obj.SetError(err); 
+        end
+        
+            err = ErrorCheck(obj);
+        
         end
         
         
-        
-        % -------------------------------------------------------
-        function err = LoadTime(obj, fileobj, location)
-            err = 0;
                        
+        % -------------------------------------------------------
+        function err = LoadTime(obj, fileobj)            
             % Arg 1
             if ~exist('fileobj','var') || (ischar(fileobj) && ~exist(fileobj,'file'))
                 fileobj = '';
@@ -242,7 +242,7 @@ classdef DataClass < FileLoadSaveClass
             end
             
             hdf5write_safe(fid, [location, '/dataTimeSeries'], obj.dataTimeSeries, 'array');
-            hdf5write_safe(fid, [location, '/time'], obj.time, 'array');
+            hdf5write_safe(fid, [location, '/time'], obj.time, 'vector');
             
             for ii = 1:length(obj.measurementList)
                 obj.measurementList(ii).SaveHdf5(fid, [location, '/measurementList', num2str(ii)]);
